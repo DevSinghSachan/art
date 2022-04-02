@@ -546,6 +546,9 @@ def _add_emdr2_args(parser):
     group.add_argument('--retriever-score-scaling', action='store_true',
                        help="Whether to scale retriever scores by inverse square root of hidden size")
 
+    group.add_argument('--filter-requires-grad-params', action='store_true',
+                       help="Whether to just provide requires grad params to the optimizer")
+
     group.add_argument('--emdr2-training', action='store_true',
                        help="Whether training EMDR2 model i.e. DPR + T5 combined")
 
