@@ -18,6 +18,7 @@ from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 from megatron.data.orqa_wiki_dataset import build_tokens_types_paddings_from_ids as context_bert_format
 from megatron.mpu.initialize import get_data_parallel_group
 
+from megatron import get_t0_model
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 
@@ -40,14 +41,6 @@ class EMDR2Model(MegatronModule):
         t5_tokenizer = get_t5_tokenizer()
         t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size,
                                                 args)
-        # self.language_model = T5Model(num_tokentypes=2,
-        #                               parallel_output=True,
-        #                               vocab_size=t5_vocab_size)
-        # self._language_model_key = 'encoder/t5_model'
-
-        self.language_model = T5ForConditionalGeneration.from_pretrained("bigscience/T0_3B")
-        for param in self.language_model.parameters():
-            param.requires_grad = False
 
         if args.topk_retrievals > 0:
             bert_tokenizer = get_tokenizer()
@@ -97,6 +90,9 @@ class EMDR2Model(MegatronModule):
         args = get_args()
         topk = self.topk
         bsize, max_seq_len = query_ids_bert.shape
+
+        language_model = get_t0_model()
+        language_model = language_model.cuda()
 
         if all_query_context_hidden_states is None:
             # Compute "fresh" query logits

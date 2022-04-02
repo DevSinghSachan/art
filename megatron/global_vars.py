@@ -23,10 +23,12 @@ import torch
 
 from megatron.tokenizer import build_tokenizer
 from .arguments import parse_args
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 _GLOBAL_ARGS = None
 _GLOBAL_TOKENIZER = None
 _GLOBAL_T5_TOKENIZER = None
+_GLOBAL_T0_MODEL = None
 _GLOBAL_TENSORBOARD_WRITER = None
 _GLOBAL_ADLR_AUTORESUME = None
 _GLOBAL_TIMERS = None
@@ -48,6 +50,12 @@ def get_t5_tokenizer():
     """Return T5 tokenizer."""
     _ensure_var_is_initialized(_GLOBAL_T5_TOKENIZER, 't5_tokenizer')
     return _GLOBAL_T5_TOKENIZER
+
+
+def get_t0_model():
+    """Return T0 model."""
+    _ensure_var_is_initialized(_GLOBAL_T0_MODEL, 'T0-model')
+    return _GLOBAL_T0_MODEL
 
 
 def get_tensorboard_writer():
@@ -76,6 +84,7 @@ def set_global_variables(extra_args_provider=None, args_defaults={},
                        ignore_unknown_args=ignore_unknown_args)
     _ = _build_t5_tokenizer(args)
     _ = _build_tokenizer(args)
+    _ = _build_t0_model(args)
     _set_tensorboard_writer(args)
     _set_adlr_autoresume(args)
     _set_timers()
@@ -107,6 +116,16 @@ def _build_t5_tokenizer(args):
     # TODO: maybe, later we can think of removing the hardcoded value of 100
     _GLOBAL_T5_TOKENIZER = build_tokenizer(args, vocab_extra_ids=100)
     return _GLOBAL_T5_TOKENIZER
+
+
+def _build_t0_model(args):
+    """Initialize T0 model."""
+    global _GLOBAL_T0_MODEL
+    _ensure_var_is_not_initialized(_GLOBAL_T0_MODEL, 'T0-model')
+    _GLOBAL_T0_MODEL = T5ForConditionalGeneration.from_pretrained("bigscience/T0_3B")
+    for param in _GLOBAL_T0_MODEL.parameters():
+        param.requires_grad = False
+    return _GLOBAL_T0_MODEL
 
 
 def rebuild_tokenizer(args):
