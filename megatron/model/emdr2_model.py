@@ -18,6 +18,8 @@ from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 from megatron.data.orqa_wiki_dataset import build_tokens_types_paddings_from_ids as context_bert_format
 from megatron.mpu.initialize import get_data_parallel_group
 
+from transformers import T5Tokenizer, T5ForConditionalGeneration
+
 
 def flatten(ids, types):
     _, _, max_seq_len = ids.shape
@@ -38,21 +40,22 @@ class EMDR2Model(MegatronModule):
         t5_tokenizer = get_t5_tokenizer()
         t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size,
                                                 args)
-        self.language_model = T5Model(num_tokentypes=2,
-                                      parallel_output=True,
-                                      vocab_size=t5_vocab_size)
-        self._language_model_key = 'encoder/t5_model'
+        # self.language_model = T5Model(num_tokentypes=2,
+        #                               parallel_output=True,
+        #                               vocab_size=t5_vocab_size)
+        # self._language_model_key = 'encoder/t5_model'
+
+        self.language_model = T5ForConditionalGeneration.from_pretrained("bigscience/T0_3B")
 
         if args.topk_retrievals > 0:
             bert_tokenizer = get_tokenizer()
             bert_vocab_size = vocab_size_with_padding(bert_tokenizer.vocab_size,
                                                       args)
-            print_rank_0('building Retriever for EMDR2 ...')
+            print_rank_0('building Retriever for UPR-Distill ...')
             self.retriever_model = dualencoder_model_provider(only_context_model=False,
                                                               only_query_model=False,
                                                               vocab_size=bert_vocab_size)
             self._retriever_model_key = 'retriever/biencoder_model'
-
             self.evidence_retriever = evidence_retriever
 
         # We have two tokenizers: (1) for BERT as the retriever models are trained using BERT.
