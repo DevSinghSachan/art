@@ -77,7 +77,15 @@ def get_optimizer(model):
     # Build parameter groups (weight decay and non-decay).
     while isinstance(model, (torchDDP, LocalDDP, FP16_Module)):
         model = model.module
+
     param_groups = get_params_for_weight_decay_optimization(model)
+
+    for param_group in param_groups:
+        requires_grad_param_list = []
+        for param in param_group['params']:
+            if param.requires_grad:
+                requires_grad_param_list.append(param)
+        param_group['params'] = requires_grad_param_list
 
     # Add model parallel attribute if it is not set.
     for param_group in param_groups:

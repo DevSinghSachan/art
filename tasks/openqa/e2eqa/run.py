@@ -55,9 +55,9 @@ def open_retrieval_generative_qa(dataset_cls):
 
 
     train(train_valid_datasets_provider,
-             model_provider,
-             end_of_epoch_callback_provider=distributed_metrics_func_provider,
-             end_of_training_callback_provider=distributed_metrics_func_provider)
+          model_provider,
+          end_of_epoch_callback_provider=distributed_metrics_func_provider,
+          end_of_training_callback_provider=distributed_metrics_func_provider)
 
 
 def main():

@@ -46,6 +46,8 @@ class EMDR2Model(MegatronModule):
         # self._language_model_key = 'encoder/t5_model'
 
         self.language_model = T5ForConditionalGeneration.from_pretrained("bigscience/T0_3B")
+        for param in self.language_model.parameters():
+            param.requires_grad = False
 
         if args.topk_retrievals > 0:
             bert_tokenizer = get_tokenizer()
@@ -220,9 +222,6 @@ class EMDR2Model(MegatronModule):
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):
         """For easy load when model is combined with other heads, add an extra key."""
         state_dict_ = dict()
-        state_dict_[self._language_model_key] = self.language_model.state_dict_for_save_checkpoint(destination,
-                                                                                                   prefix,
-                                                                                                   keep_vars)
         state_dict_[self._retriever_model_key] = self.retriever_model.state_dict_for_save_checkpoint(destination,
                                                                                                      prefix,
                                                                                                      keep_vars)
@@ -230,7 +229,6 @@ class EMDR2Model(MegatronModule):
 
     def load_state_dict(self, state_dict, strict=True):
         """Load the state dicts of each of the models"""
-        self.language_model.load_state_dict(state_dict[self._language_model_key], strict)
         self.retriever_model.load_state_dict(state_dict[self._retriever_model_key], strict)
 
     def init_state_dict_from_dpr_and_t5(self):
@@ -241,9 +239,9 @@ class EMDR2Model(MegatronModule):
             warnings.warn("Pretrained Checkpoints are not found. Initializing from random weights")
             return
 
-        print("Initializing reader model from pretrained T5", flush=True)
-        load_t5_checkpoint(self.language_model,
-                           custom_load_path=args.pretrained_t5_load)
+        # print("Initializing reader model from pretrained T5", flush=True)
+        # load_t5_checkpoint(self.language_model,
+        #                    custom_load_path=args.pretrained_t5_load)
 
         print("Initializing retriever model from pretrained BERT", flush=True)
         load_dualencoder_checkpoint(self.retriever_model,
