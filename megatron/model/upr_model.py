@@ -18,8 +18,7 @@ from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 from megatron.data.orqa_wiki_dataset import build_tokens_types_paddings_from_ids as context_bert_format
 from megatron.mpu.initialize import get_data_parallel_group
 
-from megatron import get_t0_model
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from megatron import get_t0_model, get_t0_tokenizer
 
 
 def flatten(ids, types):
@@ -31,16 +30,16 @@ def flatten(ids, types):
     return ids, types
 
 
-class EMDR2Model(MegatronModule):
+class UPRModel(MegatronModule):
     def __init__(self, evidence_retriever):
-        super(EMDR2Model, self).__init__()
+        super(UPRModel, self).__init__()
         args = get_args()
         self.topk = args.topk_retrievals
 
-        print_rank_0('building Reader for EMDR2 ...')
-        t5_tokenizer = get_t5_tokenizer()
-        t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size,
-                                                args)
+        # print_rank_0('building Reader for EMDR2 ...')
+        # t5_tokenizer = get_t5_tokenizer()
+        # t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size,
+        #                                         args)
 
         if args.topk_retrievals > 0:
             bert_tokenizer = get_tokenizer()
@@ -54,9 +53,9 @@ class EMDR2Model(MegatronModule):
             self.evidence_retriever = evidence_retriever
 
         # We have two tokenizers: (1) for BERT as the retriever models are trained using BERT.
-        # and (2) for T5 as the reader model uses T5 tokenization (which is also an extension of BERT tokenization in Megatron.)
+        # and (2) for T0 as the language model uses T0 tokenization.
         self.bert_tokenizer = get_tokenizer()
-        self.t5_tokenizer = get_t5_tokenizer()
+        self.t0_tokenizer = get_t0_tokenizer()
 
     def retriever_embedder(self, tokens, mask, types, embedder_type, disable_dropout=False):
         unwrapped_model = self.retriever_model
@@ -104,7 +103,7 @@ class EMDR2Model(MegatronModule):
             if args.no_query_embedder_training:
                 query_logits = query_logits.detach()
 
-            # Get topk evidence data for the BERT tokenized query
+            # Get top-K evidence data for the BERT tokenized query
             with torch.no_grad():
                 topk_evidence_data, stale_topk_sim = self.evidence_retriever.get_topk(query_logits.clone().detach())
 
@@ -150,12 +149,13 @@ class EMDR2Model(MegatronModule):
             all_query_context_mask = all_query_context_mask < 0.5
 
             # [batch_size x k, args.seq_length_dec, hidden_size]
-            all_query_context_hidden_states = self.language_model(encoder_input_ids=all_query_extended_context_ids,
-                                                                  decoder_input_ids=dec_ids,
-                                                                  encoder_attn_mask=all_query_context_mask,
-                                                                  decoder_attn_mask=None,
-                                                                  encoder_decoder_attn_mask=None,
-                                                                  output_enc_hidden=True)
+            all_query_context_hidden_states = language_model(encoder_input_ids=all_query_extended_context_ids,
+                                                             decoder_input_ids=dec_ids,
+                                                             encoder_attn_mask=all_query_context_mask,
+                                                             decoder_attn_mask=None,
+                                                             encoder_decoder_attn_mask=None,
+                                                             output_enc_hidden=True)
+
             # Reshape the query context hidden states
             all_query_context_hidden_states = all_query_context_hidden_states.reshape(bsize,
                                                                                       args.topk_retrievals * args.seq_length,
@@ -170,6 +170,7 @@ class EMDR2Model(MegatronModule):
         dec_mask = make_attention_mask_3d(dec_ids, dec_ids)
         dec_mask = dec_mask * make_history_mask_3d(dec_ids)
         dec_mask = dec_mask < 0.5
+
 
         # Calculate the LM logits
         # When we already have the encoder's hidden states, then all_query_context_ids_unflat is not important

@@ -336,7 +336,6 @@ def _add_checkpointing_args(parser):
                        help='Load model for finetuning. Do not load optimizer '
                        'or rng state from checkpoint and set iteration to 0. '
                        'Assumed when loading a release checkpoint.')
-
     return parser
 
 
@@ -366,8 +365,6 @@ def _add_mixed_precision_args(parser):
     group.add_argument('--fp16-lm-cross-entropy', action='store_true',
                        help='Move the cross entropy unreduced loss calculation'
                        'for lm head to fp16.')
-
-
     return parser
 
 
@@ -405,7 +402,6 @@ def _add_validation_args(parser):
     group.add_argument('--eval-interval', type=int, default=1000,
                        help='Interval between running evaluation on '
                        'validation set.')
-
     return parser
 
 
@@ -546,9 +542,6 @@ def _add_emdr2_args(parser):
     group.add_argument('--retriever-score-scaling', action='store_true',
                        help="Whether to scale retriever scores by inverse square root of hidden size")
 
-    group.add_argument('--filter-requires-grad-params', action='store_true',
-                       help="Whether to just provide requires grad params to the optimizer")
-
     group.add_argument('--emdr2-training', action='store_true',
                        help="Whether training EMDR2 model i.e. DPR + T5 combined")
 
@@ -576,6 +569,9 @@ def _add_emdr2_args(parser):
     group.add_argument('--ret-kldiv', action='store_true',
                        help='Whether to update retriever weights using KL-divergence with joint training')
 
+    group.add_argument('--hf-model-name', type=int, default="bigscience/T0_3B",
+                       help="huggingface transformers model name")
+
     # faiss index
     group.add_argument('--faiss-use-gpu', action='store_true',
                        help='Whether create the FaissMIPSIndex on GPU')
@@ -595,6 +591,5 @@ def _add_emdr2_args(parser):
                        help='After how many batches should the indexer report progress')
     group.add_argument('--allow-trivial-doc', action='store_true',
                        help='allow retriever to fetch the document from which a query came')
-
     return parser
 

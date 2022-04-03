@@ -1,7 +1,7 @@
 from megatron import get_args
 from megatron import get_tokenizer
 from megatron import print_rank_0
-from megatron.model import EMDR2Model, PreComputedEvidenceDocsRetriever
+from megatron.model import UPRModel, PreComputedEvidenceDocsRetriever
 from tasks.openqa.e2eqa.train_e2eqa import accuracy_func_provider
 from tasks.openqa.e2eqa.train_e2eqa import train
 
@@ -13,7 +13,7 @@ def open_retrieval_generative_qa(dataset_cls):
         args = get_args()
         tokenizer = get_tokenizer()
 
-        train_dataset = dataset_cls("OPENQA DATASET",
+        train_dataset = dataset_cls("OPENQA_DATASET",
                                     "training",
                                     args.train_data,
                                     tokenizer,
@@ -34,7 +34,7 @@ def open_retrieval_generative_qa(dataset_cls):
         args = get_args()
         print_rank_0('building EMDR2 model for {} ...'.format(args.task))
         evidence_retriever = PreComputedEvidenceDocsRetriever()
-        model = EMDR2Model(evidence_retriever)
+        model = UPRModel(evidence_retriever)
         return model
 
     def single_dataset_provider(datapath):
