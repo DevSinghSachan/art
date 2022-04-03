@@ -403,7 +403,7 @@ class PreComputedEvidenceDocsRetriever(object):
         self.title_map = make_indexed_dataset(args.indexed_title_data_path,
                                               impl=args.data_impl,
                                               skip_warmup=(not args.mmap_warmup))
-        self.wikititledocmap = WikiTitleDocMap(args.evidence_data_path)
+        # self.wikititledocmap = WikiTitleDocMap(args.evidence_data_path)
 
     def get_evidence_embedding(self, path):
         self.evidence_embedder_obj = OpenRetreivalDataStore(path,
@@ -458,10 +458,9 @@ class PreComputedEvidenceDocsRetriever(object):
             topkarray = topkarray.tolist()
             text_list = []
             for idx in topkarray:
-                doc_idxs, main_doc_idx = self.wikititledocmap.get_neighbour_paragraphs(idx)
-                doc_list = [self.passages_map[doc_id-1].tolist() for doc_id in doc_idxs]
-                text_list.append((doc_list,
-                                  main_doc_idx,
+                # doc_idxs, main_doc_idx = self.wikititledocmap.get_neighbour_paragraphs(idx)
+                doctext_ids = self.passages_map[idx-1].tolist()
+                text_list.append((doctext_ids,
                                   self.title_map[idx-1].tolist()))
             topk_data.append((topkarray, text_list))
 
