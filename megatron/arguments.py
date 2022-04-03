@@ -569,7 +569,7 @@ def _add_emdr2_args(parser):
     group.add_argument('--ret-kldiv', action='store_true',
                        help='Whether to update retriever weights using KL-divergence with joint training')
 
-    group.add_argument('--hf-model-name', type=int, default="bigscience/T0_3B",
+    group.add_argument('--hf-model-name', type=str, default="bigscience/T0_3B",
                        help="huggingface transformers model name")
 
     # faiss index
