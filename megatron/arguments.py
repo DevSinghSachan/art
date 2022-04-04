@@ -569,8 +569,15 @@ def _add_emdr2_args(parser):
     group.add_argument('--ret-kldiv', action='store_true',
                        help='Whether to update retriever weights using KL-divergence with joint training')
 
+    # T0 model arguments
     group.add_argument('--hf-model-name', type=str, default="bigscience/T0_3B",
                        help="huggingface transformers model name")
+
+    group.add_argument('--verbalizer', type=str, default="Please write a question based on this passage.",
+                       help='Prompt string for generating the target tokens')
+
+    group.add_argument('--verbalizer-head', type=str, default="Passage: ",
+                       help='The string token used to represent encoder input')
 
     # faiss index
     group.add_argument('--faiss-use-gpu', action='store_true',

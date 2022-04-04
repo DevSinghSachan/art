@@ -112,7 +112,7 @@ class UPRModel(MegatronModule):
                                      query_ids_t5,
                                      query_ids_t5_len,
                                      topk_evidence_data)
-                all_context_ids, all_context_types = output
+                all_context_ids, all_context_types, all_title_context_text, all_query_text = output
 
             # reshape the all_context_tokens, all_context_mask, and seq lengths
             all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
@@ -144,9 +144,6 @@ class UPRModel(MegatronModule):
             # B x 1 x K -> B x K
             topk_log_probs = topk_log_probs.squeeze(1)
 
-            # MASK Handling of topk-augmented encoders
-            all_query_context_mask = make_attention_mask_3d(all_query_extended_context_ids, all_query_extended_context_ids)
-            all_query_context_mask = all_query_context_mask < 0.5
 
             # [batch_size x k, args.seq_length_dec, hidden_size]
             all_query_context_hidden_states = language_model(encoder_input_ids=all_query_extended_context_ids,
@@ -251,20 +248,21 @@ def postprocess(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
     t5_tokenizer = get_t5_tokenizer()
 
     all_context_ids, all_context_types = [], []
-    all_context_wo_pad = []
-    # all_query_one_context_ids = []
+    all_title_context_text = []
+    all_query_text = []
 
     for qid, query_t5, query_t5_len, (topkids, text_list) in zip(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
         k = 0
         query_t5 = query_t5.tolist()[:query_t5_len]
+        query_text = " ".join(t5_tokenizer.decode(query_t5).split()[1:-1])
+
         context_ids_list, context_types_list = [], []
-        title_context_ids_list = []
+
         for eid, (context_ids, title_ids) in zip(topkids, text_list):
             # We should ignore the evidence from which query originates
             if qid != eid and k < args.topk_retrievals:
                 k += 1
                 # Except for the masked tokens from extra-vocab-ids, BERT tokenizer and T5 tokenizer output the same encodings
-
                 ids, types, pad_mask = context_bert_format(title_ids + [t5_tokenizer.sep] + context_ids,
                                                            args.seq_length_ret,
                                                            t5_tokenizer.cls,
@@ -273,25 +271,28 @@ def postprocess(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
                 context_ids_list.append(ids)
                 context_types_list.append(types)
 
-                # Jointly encode the query and ...single context tokens...
-                # query_one_context_ids = query_single_context_t5_format(query_t5,
-                #                                                        title_ids,
-                #                                                        context_ids,
-                #                                                        args.seq_length,
-                #                                                        t5_tokenizer.sep,
-                #                                                        t5_tokenizer.pad)
-                # all_query_one_context_ids.append(query_one_context_ids)
 
                 title_text = t5_tokenizer.decode(title_ids)
                 context_text = t5_tokenizer.decode(context_ids)
-                title_context_ids_list.append((title_text, context_text))
+                encoder_input_text = "{} {} {}. {}".format(args.verbalizer_head,
+                                                   title_text,
+                                                   context_text,
+                                                   args.verbalizer)
+                all_title_context_text.append(encoder_input_text)
+
+                decoder_input_text = "{} {}".format("Question:",
+                                                    query_text)
+                all_query_text.append(decoder_input_text)
+
 
         all_context_ids.append(np.array(context_ids_list))
         all_context_types.append(np.array(context_types_list))
 
-    return torch.cuda.LongTensor(all_context_ids), \
-           torch.cuda.LongTensor(all_context_types)
 
+    return torch.cuda.LongTensor(all_context_ids), \
+           torch.cuda.LongTensor(all_context_types), \
+           all_title_context_text, \
+           all_query_text
 
 # def query_extended_context_t5_format(query_ids, title_ids, context_doc_list, main_doc_idx, max_seq_length, sep_id, pad_id):
 #     enc_ids = query_ids + title_ids + [sep_id]
