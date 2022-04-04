@@ -14,7 +14,7 @@ from megatron.training import setup_model_and_optimizer
 from megatron.training import train_step
 from megatron.training import training_log
 from megatron.utils import reduce_losses
-from megatron import get_t5_tokenizer
+from megatron import get_t5_tokenizer, get_t0_tokenizer
 from megatron.mpu import vocab_parallel_cross_entropy as cross_entropy
 from megatron.model.search_strategy import SampleOrGreedySearch, BeamSearch
 from tasks.openqa.e2eqa.eval_utils import exact_match_score, metric_max_over_ground_truths
@@ -46,6 +46,7 @@ class CustomDataLoader(DataLoader):
         if kwargs.get('collate_fn', None) is None:
             kwargs['collate_fn'] = self._collate_fn
         self.eval = eval
+        self.t0_tokenizer = get_t0_tokenizer()
         super().__init__(dataset, **kwargs)
 
     def _collate_fn(self, batch_data):
@@ -53,7 +54,7 @@ class CustomDataLoader(DataLoader):
         for d in batch_data:
             for k, v in d.items():
                 tensorized.setdefault(k, []).append(v)
-        assert len(tensorized) == 10
+        assert len(tensorized) == 11
 
         tensorized['query_uid'] = torch.LongTensor(tensorized['query_uid'])
         tensorized['query_ids_bert'] = torch.LongTensor(tensorized['query_ids_bert'])
@@ -142,31 +143,22 @@ def _cross_entropy_forward_step(batch, model):
     timers('batch generator').stop()
 
     # Forward model.
-    lm_logits, topk_log_probs, lm_logits_one_context = model(query_uid,
-                                                             query_ids_bert,
-                                                             query_types,
-                                                             query_mask_bert,
-                                                             query_ids_t5,
-                                                             query_ids_t5_len,
-                                                             dec_ids)
-    lm_logits = lm_logits.float()
-
-    bsize, dec_seq_length, units = lm_logits.shape
-    lm_logits = lm_logits.view(bsize * dec_seq_length, units)
-
-    # Cross-entropy loss.
-    loss_func = torch.nn.CrossEntropyLoss(reduction='none', ignore_index=0)
-    loss_ = loss_func(lm_logits.contiguous().float(), labels.view(-1))
-    lm_loss = torch.sum(loss_.view(-1) * loss_mask.reshape(-1)) / loss_mask.sum()
+    topk_log_probs, lm_logits_one_context = model(query_uid,
+                                                  query_ids_bert,
+                                                  query_types,
+                                                  query_mask_bert,
+                                                  query_ids_t5,
+                                                  query_ids_t5_len,
+                                                  dec_ids)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
         if args.ret_kldiv:
             retriever_loss = get_kl_div_retriever(lm_logits_one_context,
-                                              topk_log_probs,
-                                              labels,
-                                              loss_mask)
+                                                  topk_log_probs,
+                                                  labels,
+                                                  loss_mask)
         else:
             t5_tokenizer = get_t5_tokenizer()
             eos_id = t5_tokenizer.eos_token_id
@@ -175,10 +167,10 @@ def _cross_entropy_forward_step(batch, model):
                                                                                           labels,
                                                                                           loss_mask,
                                                                                           eos_id)
-    net_loss = lm_loss + retriever_loss
-    reduced_loss = reduce_losses([lm_loss, retriever_loss])
+    net_loss = retriever_loss
+    reduced_loss = reduce_losses([retriever_loss])
 
-    return net_loss, {'lm_loss': reduced_loss[0], 'retriever_loss': reduced_loss[1]}
+    return net_loss, {'retriever_loss': reduced_loss[0]}
 
 
 def get_kl_div_retriever(lm_logits, topk_log_probs, labels, loss_mask):

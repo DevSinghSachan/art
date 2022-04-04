@@ -1,5 +1,5 @@
 from megatron import get_args
-from megatron import get_tokenizer
+from megatron import get_tokenizer, get_t0_tokenizer
 from megatron import print_rank_0
 from megatron.model import UPRModel, PreComputedEvidenceDocsRetriever
 from tasks.openqa.e2eqa.train_e2eqa import accuracy_func_provider
@@ -11,19 +11,22 @@ def open_retrieval_generative_qa(dataset_cls):
     def train_valid_datasets_provider():
         """Build train and validation dataset."""
         args = get_args()
-        tokenizer = get_tokenizer()
+        bert_tokenizer = get_tokenizer()
+        t0_tokenizer = get_t0_tokenizer()
 
         train_dataset = dataset_cls("OPENQA_DATASET",
                                     "training",
                                     args.train_data,
-                                    tokenizer,
+                                    bert_tokenizer,
+                                    t0_tokenizer,
                                     args.seq_length_ret,
                                     args.decoder_seq_length)
 
         valid_dataset = dataset_cls("OPENQA_DATASET",
                                     "validation",
                                     args.valid_data,
-                                    tokenizer,
+                                    bert_tokenizer,
+                                    t0_tokenizer,
                                     args.seq_length_ret,
                                     args.decoder_seq_length)
 
@@ -39,14 +42,16 @@ def open_retrieval_generative_qa(dataset_cls):
 
     def single_dataset_provider(datapath):
         args = get_args()
-        tokenizer = get_tokenizer()
+        bert_tokenizer = get_tokenizer()
+        t0_tokenizer = get_t0_tokenizer()
 
         name = datapath[0].split('/')[-1].split('.')[0]
 
         return dataset_cls("OPENQA_DATASET",
                            name,
                            datapath,
-                           tokenizer,
+                           bert_tokenizer,
+                           t0_tokenizer,
                            args.seq_length_ret,
                            args.decoder_seq_length)
 

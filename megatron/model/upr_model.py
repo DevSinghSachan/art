@@ -159,77 +159,16 @@ class UPRModel(MegatronModule):
             decoder_prefix_tensor = target_encoding.input_ids.cuda()
 
             with torch.no_grad():
-                logits = language_model(input_ids=context_tensor,
-                                        attention_mask=attention_mask,
-                                        labels=decoder_prefix_tensor).logits
+                lm_logits = language_model(input_ids=context_tensor,
+                                           attention_mask=attention_mask,
+                                           labels=decoder_prefix_tensor).logits
 
+                _, decoder_seq_length, vocab_size = lm_logits.shape
 
-            # # [batch_size x k, args.seq_length_dec, hidden_size]
-            # all_query_context_hidden_states = language_model(encoder_input_ids=all_query_extended_context_ids,
-            #                                                  decoder_input_ids=dec_ids,
-            #                                                  encoder_attn_mask=all_query_context_mask,
-            #                                                  decoder_attn_mask=None,
-            #                                                  encoder_decoder_attn_mask=None,
-            #                                                  output_enc_hidden=True)
+                # B K x T x V -> B x K x T x V
+                lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
 
-            # Reshape the query context hidden states
-            all_query_context_hidden_states = all_query_context_hidden_states.reshape(bsize,
-                                                                                      args.topk_retrievals * args.seq_length,
-                                                                                      args.hidden_size)
-
-            all_query_context_ids_unflat = all_query_extended_context_ids.reshape(bsize,
-                                                                                  args.topk_retrievals * args.seq_length)
-
-        enc_dec_mask = make_attention_mask_3d(dec_ids, all_query_context_ids_unflat)
-        enc_dec_mask = enc_dec_mask < 0.5
-
-        dec_mask = make_attention_mask_3d(dec_ids, dec_ids)
-        dec_mask = dec_mask * make_history_mask_3d(dec_ids)
-        dec_mask = dec_mask < 0.5
-
-
-        # Calculate the LM logits
-        # When we already have the encoder's hidden states, then all_query_context_ids_unflat is not important
-        # Truncating the max sequence length to limit to max-sequence-length
-        temp_ids = all_query_context_ids_unflat[:, :args.seq_length]
-
-        lm_logits, _ = self.language_model(temp_ids,
-                                           dec_ids,
-                                           encoder_attn_mask=None,
-                                           decoder_attn_mask=dec_mask,
-                                           encoder_decoder_attn_mask=enc_dec_mask,
-                                           enc_hidden_states=all_query_context_hidden_states)
-
-        if self.training:
-            lm_logits_one_context = None
-            if args.update_retriever:
-                with torch.no_grad():
-                    dec_ids_repeated = torch.repeat_interleave(dec_ids, topk, dim=0)
-
-                    query_one_context_mask = make_attention_mask_3d(query_one_context_ids,
-                                                                    query_one_context_ids)
-                    query_one_context_mask = query_one_context_mask < 0.5
-
-                    enc_dec_mask = make_attention_mask_3d(dec_ids_repeated, query_one_context_ids)
-                    enc_dec_mask = enc_dec_mask < 0.5
-
-                    dec_mask = make_attention_mask_3d(dec_ids_repeated, dec_ids_repeated)
-                    dec_mask = dec_mask * make_history_mask_3d(dec_ids_repeated)
-                    dec_mask = dec_mask < 0.5
-
-                    flat_lm_logits_one_context, _ = self.language_model(encoder_input_ids=query_one_context_ids,
-                                                                        decoder_input_ids=dec_ids_repeated,
-                                                                        encoder_attn_mask=query_one_context_mask,
-                                                                        decoder_attn_mask=dec_mask,
-                                                                        encoder_decoder_attn_mask=enc_dec_mask,
-                                                                        tokentype_ids=None)
-                    _, decoder_seq_length, vocab_size = flat_lm_logits_one_context.shape
-                    # B K x T x V -> B x K x T x V
-                    lm_logits_one_context = flat_lm_logits_one_context.reshape(bsize, topk, decoder_seq_length, vocab_size)
-
-            return lm_logits, topk_log_probs, lm_logits_one_context
-        else:
-            return lm_logits, topk_log_probs, all_query_context_hidden_states, all_query_context_ids_unflat
+            return topk_log_probs, lm_logits
 
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):

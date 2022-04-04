@@ -3,25 +3,25 @@ import csv
 from copy import deepcopy
 import numpy as np
 from torch.utils.data import Dataset
-from megatron import print_rank_0, get_args
+from megatron import print_rank_0, get_args, get_t0_tokenizer
 from megatron.data.mask_creation_utils import make_attention_mask
 
 
-def build_tokens_types_paddings_from_text(src_text, answer_text, tokenizer, max_seq_length, decoder_seq_length):
+def build_tokens_types_paddings_from_text(src_text, answer_text, bert_tokenizer, max_seq_length, decoder_seq_length):
     """Build token types and paddings, trim if needed, and pad if needed."""
 
-    src_text_ids = tokenizer.tokenize(src_text)
-    answer_text_ids = tokenizer.tokenize(answer_text)
+    src_text_ids = bert_tokenizer.tokenize(src_text)
+    answer_text_ids = bert_tokenizer.tokenize(answer_text)
 
     return build_tokens_types_paddings_from_ids(src_text_ids,
                                                 answer_text_ids,
                                                 max_seq_length,
                                                 decoder_seq_length,
-                                                tokenizer.cls,
-                                                tokenizer.sep,
-                                                tokenizer.pad,
-                                                tokenizer.bos_token_id,
-                                                tokenizer.eos_token_id)
+                                                bert_tokenizer.cls,
+                                                bert_tokenizer.sep,
+                                                bert_tokenizer.pad,
+                                                bert_tokenizer.bos_token_id,
+                                                bert_tokenizer.eos_token_id)
 
 
 def build_tokens_types_paddings_from_ids(src_ids, answer_text_ids,
@@ -81,7 +81,7 @@ def build_tokens_types_paddings_from_ids(src_ids, answer_text_ids,
     return enc_ids, tokentypes_enc, num_tokens_enc, dec_in_ids, dec_out_ids, loss_mask
 
 
-def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_out_ids, loss_mask, reference):
+def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_out_ids, loss_mask, query_text, reference):
     token_ids = np.array(token_ids, dtype=np.int64)
     token_types = np.array(token_types, dtype=np.int64)
     token_mask = make_attention_mask(token_ids, token_ids)
@@ -96,6 +96,7 @@ def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_
         'dec_ids': dec_in_ids,
         'labels': dec_out_ids,
         'loss_mask': loss_mask,
+        'query_text': query_text,
         'reference': reference
     })
     return sample
@@ -104,12 +105,14 @@ def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_
 class OpenQADataset(ABC, Dataset):
 
     def __init__(self, task_name, dataset_name, datapaths,
-                 tokenizer, max_seq_length, decoder_seq_length):
+                 bert_tokenizer, t0_tokenizer,
+                 max_seq_length, decoder_seq_length):
         args = get_args()
         self.np_rng = np.random.RandomState(seed=args.seed)
         self.task_name = task_name
         self.dataset_name = dataset_name
-        self.tokenizer = tokenizer
+        self.bert_tokenizer = bert_tokenizer
+        self.t0_tokenizer = t0_tokenizer
         self.max_seq_length = max_seq_length
         self.decoder_seq_length = decoder_seq_length
         print_rank_0(' > building {} dataset for {}:'.format(self.task_name,
@@ -132,11 +135,12 @@ class OpenQADataset(ABC, Dataset):
 
         # Taking the first answer
         sampled_answer = answers_copy[0]
+        labels = raw_sample['question']
 
         ques_tokens, tokentypes_enc, num_tokens_ques, dec_in_ids, dec_out_ids, loss_mask \
             = build_tokens_types_paddings_from_text(raw_sample['question'],
                                                     sampled_answer,
-                                                    self.tokenizer,
+                                                    self.bert_tokenizer,
                                                     self.max_seq_length,
                                                     self.decoder_seq_length)
         sample = build_sample(raw_sample['uid'],
@@ -146,6 +150,7 @@ class OpenQADataset(ABC, Dataset):
                               dec_in_ids,
                               dec_out_ids,
                               loss_mask,
+                              raw_sample['question'],
                               raw_sample['answers'])
         return sample
 
