@@ -144,14 +144,32 @@ class UPRModel(MegatronModule):
             # B x 1 x K -> B x K
             topk_log_probs = topk_log_probs.squeeze(1)
 
+            input_encoding = self.t0_tokenizer(all_title_context_text,
+                                               padding='longest',
+                                               max_length=512,
+                                               truncation=True,
+                                               return_tensors='pt')
+            context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
-            # [batch_size x k, args.seq_length_dec, hidden_size]
-            all_query_context_hidden_states = language_model(encoder_input_ids=all_query_extended_context_ids,
-                                                             decoder_input_ids=dec_ids,
-                                                             encoder_attn_mask=all_query_context_mask,
-                                                             decoder_attn_mask=None,
-                                                             encoder_decoder_attn_mask=None,
-                                                             output_enc_hidden=True)
+            target_encoding = self.tokenizer(all_query_text,
+                                             max_length=128,
+                                             truncation=True,
+                                             return_tensors='pt')
+            decoder_prefix_tensor = target_encoding.input_ids.cuda()
+
+            with torch.no_grad():
+                logits = language_model(input_ids=context_tensor,
+                                        attention_mask=attention_mask,
+                                        labels=decoder_prefix_tensor).logits
+
+
+            # # [batch_size x k, args.seq_length_dec, hidden_size]
+            # all_query_context_hidden_states = language_model(encoder_input_ids=all_query_extended_context_ids,
+            #                                                  decoder_input_ids=dec_ids,
+            #                                                  encoder_attn_mask=all_query_context_mask,
+            #                                                  decoder_attn_mask=None,
+            #                                                  encoder_decoder_attn_mask=None,
+            #                                                  output_enc_hidden=True)
 
             # Reshape the query context hidden states
             all_query_context_hidden_states = all_query_context_hidden_states.reshape(bsize,
