@@ -119,21 +119,22 @@ def get_loss_and_retriever_utility(lm_logits, topk_log_probs, labels, loss_mask,
     # Applying mask to marginal loss
     lm_loss = -1 * torch.sum(marginal_gold_log_probs * loss_mask) / torch.sum(loss_mask)
 
-    # Retriever Utility is marginal log prob minus the log prob of NULL Block
-    # NULL block probability is the last one: gold_log_probs[:, -1, :]
-    # [B, K]
-    retriever_utility = marginal_gold_log_probs - gold_log_probs[:, -1, :]
-    # Mask out the EOS id and sentinel tokens to compute retriever utility.
-    # We are masking out the EOS and sentinel tokens because, their loss is very for both with and without retrieved contexts
-    # and hence they are not useful to ascertain the utility of the retrieved tokens.
-    # The trick used here is that the sentinel tokens have ids higher than the EOS id, so they all will be replaced with 0.
-    loss_mask_retriever_utility = loss_mask.masked_fill(labels >= eos_id, 0)
-    assert torch.sum(loss_mask_retriever_utility) > 0
-    retriever_utility = torch.sum(retriever_utility * loss_mask_retriever_utility) / torch.sum(loss_mask_retriever_utility)
+    # # Retriever Utility is marginal log prob minus the log prob of NULL Block
+    # # NULL block probability is the last one: gold_log_probs[:, -1, :]
+    # # [B, K]
+    # retriever_utility = marginal_gold_log_probs - gold_log_probs[:, -1, :]
 
-    null_block_lm_loss = -1 * torch.sum(gold_log_probs[:, -1, :] * loss_mask) / torch.sum(loss_mask)
+    # # Mask out the EOS id and sentinel tokens to compute retriever utility.
+    # # We are masking out the EOS and sentinel tokens because, their loss is very for both with and without retrieved contexts
+    # # and hence they are not useful to ascertain the utility of the retrieved tokens.
+    # # The trick used here is that the sentinel tokens have ids higher than the EOS id, so they all will be replaced with 0.
+    # loss_mask_retriever_utility = loss_mask.masked_fill(labels >= eos_id, 0)
+    # assert torch.sum(loss_mask_retriever_utility) > 0
+    # retriever_utility = torch.sum(retriever_utility * loss_mask_retriever_utility) / torch.sum(loss_mask_retriever_utility)
+    #
+    # null_block_lm_loss = -1 * torch.sum(gold_log_probs[:, -1, :] * loss_mask) / torch.sum(loss_mask)
 
-    return lm_loss, retriever_utility, null_block_lm_loss
+    return lm_loss # , retriever_utility, null_block_lm_loss
 
 
 def _cross_entropy_forward_step(batch, model):
