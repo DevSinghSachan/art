@@ -65,6 +65,15 @@ class CustomDataLoader(DataLoader):
         tensorized['dec_ids'] = torch.LongTensor(tensorized['dec_ids'])
         tensorized['labels'] = torch.LongTensor(tensorized['labels'])
         tensorized['loss_mask'] = torch.FloatTensor(tensorized['loss_mask'])
+
+        query_ids_mask_t0 = self.t0_tokenizer(tensorized['query_text'],
+                                              padding='longest',
+                                              max_length=128,
+                                              truncation=True,
+                                              return_tensors='pt')
+        tensorized['query_ids_t0'] = query_ids_mask_t0.input_ids
+        tensorized['query_mask_t0'] = query_ids_mask_t0.attention_mask
+
         # The final key is the reference, which is already appended.
         return tensorized
 
