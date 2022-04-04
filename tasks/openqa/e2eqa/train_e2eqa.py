@@ -167,19 +167,13 @@ def _cross_entropy_forward_step(batch, model):
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
-        if args.ret_kldiv:
-            retriever_loss = get_kl_div_retriever(lm_logits_one_context,
-                                                  topk_log_probs,
-                                                  labels,
-                                                  loss_mask)
-        else:
-            t5_tokenizer = get_t5_tokenizer()
-            eos_id = t5_tokenizer.eos_token_id
-            retriever_loss, weighted_ru, null_block_loss = get_loss_and_retriever_utility(lm_logits_one_context,
-                                                                                          topk_log_probs,
-                                                                                          labels,
-                                                                                          loss_mask,
-                                                                                          eos_id)
+        t5_tokenizer = get_t5_tokenizer()
+        eos_id = t5_tokenizer.eos_token_id
+        retriever_loss, weighted_ru, null_block_loss = get_loss_and_retriever_utility(lm_logits_one_context,
+                                                                                      topk_log_probs,
+                                                                                      query_ids_t0,
+                                                                                      query_mask_t0,
+                                                                                      eos_id)
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])
 
