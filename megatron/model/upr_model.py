@@ -82,9 +82,7 @@ class UPRModel(MegatronModule):
             raise ValueError("Invalid embedder type.")
 
     def forward(self, query_uid, query_ids_bert, query_types, query_mask_bert,
-                query_ids_t5, query_ids_t5_len, dec_ids,
-                all_query_context_hidden_states=None, all_query_context_ids_unflat=None,
-                topk_log_probs=None):
+                query_ids_t5, query_ids_t5_len):
 
         args = get_args()
         topk = self.topk
@@ -93,82 +91,80 @@ class UPRModel(MegatronModule):
         language_model = get_t0_model()
         language_model = language_model.cuda()
 
-        if all_query_context_hidden_states is None:
-            # Compute "fresh" query logits
-            query_logits = self.retriever_embedder(query_ids_bert,
-                                                   query_mask_bert,
-                                                   query_types,
-                                                   embedder_type="query",
-                                                   disable_dropout=args.disable_retriever_dropout)
-            if args.no_query_embedder_training:
-                query_logits = query_logits.detach()
+        # Compute "fresh" query logits
+        query_logits = self.retriever_embedder(query_ids_bert,
+                                               query_mask_bert,
+                                               query_types,
+                                               embedder_type="query",
+                                               disable_dropout=args.disable_retriever_dropout)
+        if args.no_query_embedder_training:
+            query_logits = query_logits.detach()
 
-            # Get top-K evidence data for the BERT tokenized query
-            with torch.no_grad():
-                topk_evidence_data, stale_topk_sim = self.evidence_retriever.get_topk(query_logits.clone().detach())
+        # Get top-K evidence data for the BERT tokenized query
+        with torch.no_grad():
+            topk_evidence_data, stale_topk_sim = self.evidence_retriever.get_topk(query_logits.clone().detach())
 
-            with torch.no_grad():
-                output = postprocess(query_uid,
-                                     query_ids_t5,
-                                     query_ids_t5_len,
-                                     topk_evidence_data)
-                all_context_ids, all_context_types, all_title_context_text, all_query_text = output
+        with torch.no_grad():
+            output = postprocess(query_uid,
+                                 query_ids_t5,
+                                 query_ids_t5_len,
+                                 topk_evidence_data)
+            all_context_ids, all_context_types, all_title_context_text, all_query_text = output
 
-            # reshape the all_context_tokens, all_context_mask, and seq lengths
-            all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
-            all_context_mask = make_attention_mask_3d(all_context_ids, all_context_ids)
-            all_context_mask = all_context_mask < 0.5
+        # reshape the all_context_tokens, all_context_mask, and seq lengths
+        all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
+        all_context_mask = make_attention_mask_3d(all_context_ids, all_context_ids)
+        all_context_mask = all_context_mask < 0.5
 
-            # Compute "fresh" context logits
-            all_context_logits = self.retriever_embedder(all_context_ids,
-                                                         all_context_mask,
-                                                         all_context_types,
-                                                         embedder_type="context",
-                                                         disable_dropout=args.disable_retriever_dropout)
-            all_context_logits = all_context_logits.reshape(bsize, topk, -1)
+        # Compute "fresh" context logits
+        all_context_logits = self.retriever_embedder(all_context_ids,
+                                                     all_context_mask,
+                                                     all_context_types,
+                                                     embedder_type="context",
+                                                     disable_dropout=args.disable_retriever_dropout)
+        all_context_logits = all_context_logits.reshape(bsize, topk, -1)
 
-            if args.no_context_embedder_training:
-                all_context_logits = all_context_logits.detach()
+        if args.no_context_embedder_training:
+            all_context_logits = all_context_logits.detach()
 
-            # [B, 1, dim]
-            query_logits = query_logits.unsqueeze(1).float()
-            all_context_logits = all_context_logits.float()
+        # [B, 1, dim]
+        query_logits = query_logits.unsqueeze(1).float()
+        all_context_logits = all_context_logits.float()
 
-            # [B, 1, K]
-            topk_sim_scores = torch.bmm(query_logits, all_context_logits.transpose(1, 2))
-            if args.retriever_score_scaling:
-                topk_sim_scores = topk_sim_scores / math.sqrt(args.hidden_size)
+        # [B, 1, K]
+        topk_sim_scores = torch.bmm(query_logits, all_context_logits.transpose(1, 2))
+        if args.retriever_score_scaling:
+            topk_sim_scores = topk_sim_scores / math.sqrt(args.hidden_size)
 
-            # [B, 1, K]
-            topk_log_probs = F.log_softmax(topk_sim_scores, dim=2)
-            # B x 1 x K -> B x K
-            topk_log_probs = topk_log_probs.squeeze(1)
+        # [B, 1, K]
+        topk_log_probs = F.log_softmax(topk_sim_scores, dim=2)
+        # B x 1 x K -> B x K
+        topk_log_probs = topk_log_probs.squeeze(1)
 
-            input_encoding = self.t0_tokenizer(all_title_context_text,
-                                               padding='longest',
-                                               max_length=512,
-                                               truncation=True,
-                                               return_tensors='pt')
-            context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
+        input_encoding = self.t0_tokenizer(all_title_context_text,
+                                           padding='longest',
+                                           max_length=512,
+                                           truncation=True,
+                                           return_tensors='pt')
+        context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
-            target_encoding = self.t0_tokenizer(all_query_text,
-                                                padding='longest',
-                                                max_length=128,
-                                                truncation=True,
-                                                return_tensors='pt')
-            decoder_prefix_tensor = target_encoding.input_ids.cuda()
+        target_encoding = self.t0_tokenizer(all_query_text,
+                                            padding='longest',
+                                            max_length=128,
+                                            truncation=True,
+                                            return_tensors='pt')
+        decoder_prefix_tensor = target_encoding.input_ids.cuda()
 
-            with torch.no_grad():
-                lm_logits = language_model(input_ids=context_tensor,
-                                           attention_mask=attention_mask,
-                                           labels=decoder_prefix_tensor).logits
+        with torch.no_grad():
+            lm_logits = language_model(input_ids=context_tensor,
+                                       attention_mask=attention_mask,
+                                       labels=decoder_prefix_tensor).logits
+            _, decoder_seq_length, vocab_size = lm_logits.shape
 
-                _, decoder_seq_length, vocab_size = lm_logits.shape
+            # B K x T x V -> B x K x T x V
+            lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
 
-                # B K x T x V -> B x K x T x V
-                lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
-
-            return topk_log_probs, lm_logits
+        return topk_log_probs, lm_logits
 
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):

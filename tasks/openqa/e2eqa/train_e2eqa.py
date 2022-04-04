@@ -35,10 +35,13 @@ def process_batch(batch):
     dec_ids = batch['dec_ids'].cuda()
     labels = batch['labels'].cuda()
     loss_mask = batch['loss_mask'].cuda()
+    query_ids_t0 = batch['query_ids_t0'].cuda()
+    query_mask_t0 = batch['query_mask_t0'].cuda()
     reference = batch['reference']
 
     return query_uid, query_ids_bert, query_types, query_mask_bert, \
-           query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, reference
+           query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, \
+           query_ids_t0, query_mask_t0, reference
 
 
 class CustomDataLoader(DataLoader):
@@ -146,7 +149,8 @@ def _cross_entropy_forward_step(batch, model):
         batch_ = batch
 
     query_uid, query_ids_bert, query_types, query_mask_bert, \
-    query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, reference = process_batch(batch_)
+    query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, \
+    query_ids_t0, query_mask_t0, reference = process_batch(batch_)
     assert torch.all(query_uid < 0), "query uid can't be positive"
 
     timers('batch generator').stop()
