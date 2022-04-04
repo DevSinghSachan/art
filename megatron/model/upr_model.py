@@ -81,8 +81,7 @@ class UPRModel(MegatronModule):
         else:
             raise ValueError("Invalid embedder type.")
 
-    def forward(self, query_uid, query_ids_bert, query_types, query_mask_bert,
-                query_ids_t5, query_ids_t5_len):
+    def forward(self, query_uid, query_ids_bert, query_types, query_mask_bert, query_ids_t5, query_ids_t5_len):
 
         args = get_args()
         topk = self.topk

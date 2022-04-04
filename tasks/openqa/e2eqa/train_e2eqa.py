@@ -161,8 +161,7 @@ def _cross_entropy_forward_step(batch, model):
                                                   query_types,
                                                   query_mask_bert,
                                                   query_ids_t5,
-                                                  query_ids_t5_len,
-                                                  dec_ids)
+                                                  query_ids_t5_len)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
