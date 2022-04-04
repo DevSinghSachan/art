@@ -151,10 +151,10 @@ class UPRModel(MegatronModule):
                                                return_tensors='pt')
             context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
-            target_encoding = self.tokenizer(all_query_text,
-                                             max_length=128,
-                                             truncation=True,
-                                             return_tensors='pt')
+            target_encoding = self.t0_tokenizer(all_query_text,
+                                                max_length=128,
+                                                truncation=True,
+                                                return_tensors='pt')
             decoder_prefix_tensor = target_encoding.input_ids.cuda()
 
             with torch.no_grad():
