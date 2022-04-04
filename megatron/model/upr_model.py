@@ -152,6 +152,7 @@ class UPRModel(MegatronModule):
             context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
             target_encoding = self.t0_tokenizer(all_query_text,
+                                                padding='longest',
                                                 max_length=128,
                                                 truncation=True,
                                                 return_tensors='pt')
