@@ -4,8 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from megatron import get_args, print_rank_0
-from megatron.checkpointing import load_dualencoder_checkpoint, load_t5_checkpoint
-from megatron.model import T5Model
+from megatron.checkpointing import load_dualencoder_checkpoint
 from megatron.module import MegatronModule
 from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.mpu import get_mips_group, get_node_first_rank
@@ -38,8 +37,7 @@ class UPRModel(MegatronModule):
 
         # print_rank_0('building Reader for EMDR2 ...')
         # t5_tokenizer = get_t5_tokenizer()
-        # t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size,
-        #                                         args)
+        # t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size, args)
 
         if args.topk_retrievals > 0:
             bert_tokenizer = get_tokenizer()
@@ -81,7 +79,8 @@ class UPRModel(MegatronModule):
         else:
             raise ValueError("Invalid embedder type.")
 
-    def forward(self, query_uid, query_ids_bert, query_types, query_mask_bert, query_ids_t5, query_ids_t5_len):
+    def forward(self, query_uid, query_ids_bert, query_types, query_mask_bert,
+                prefixed_query_ids_t0, prefixed_query_ids_t0_len):
 
         args = get_args()
         topk = self.topk
@@ -105,10 +104,10 @@ class UPRModel(MegatronModule):
 
         with torch.no_grad():
             output = postprocess(query_uid,
-                                 query_ids_t5,
-                                 query_ids_t5_len,
+                                 prefixed_query_ids_t0,
+                                 prefixed_query_ids_t0_len,
                                  topk_evidence_data)
-            all_context_ids, all_context_types, all_title_context_text, all_query_text = output
+            all_context_ids, all_context_types, all_title_context_text = output
 
         # reshape the all_context_tokens, all_context_mask, and seq lengths
         all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
@@ -147,12 +146,14 @@ class UPRModel(MegatronModule):
                                            return_tensors='pt')
         context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
-        target_encoding = self.t0_tokenizer(all_query_text,
-                                            padding='longest',
-                                            max_length=128,
-                                            truncation=True,
-                                            return_tensors='pt')
-        decoder_prefix_tensor = target_encoding.input_ids.cuda()
+        # target_encoding = self.t0_tokenizer(all_query_text,
+        #                                     padding='longest',
+        #                                     max_length=128,
+        #                                     truncation=True,
+        #                                     return_tensors='pt')
+        # decoder_prefix_tensor = target_encoding.input_ids.cuda()
+
+        decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
         with torch.no_grad():
             lm_logits = language_model(input_ids=context_tensor,
@@ -195,20 +196,19 @@ class UPRModel(MegatronModule):
                                     custom_load_path=args.pretrained_dpr_load)
 
 
-def postprocess(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
+def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, topk_evidence_data):
     args = get_args()
     query_uid = query_uid.tolist()
     t5_tokenizer = get_t5_tokenizer()
 
     all_context_ids, all_context_types = [], []
     all_title_context_text = []
-    all_query_text = []
 
-    for qid, query_t5, query_t5_len, (topkids, text_list) in zip(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
+    for qid, prefixed_query_t0_ids, prefixed_query_t0_len, (topkids, text_list) in zip(query_uid,
+                                                                                       prefixed_query_ids_t0,
+                                                                                       prefixed_query_ids_t0_len,
+                                                                                       topk_evidence_data):
         k = 0
-        query_t5 = query_t5.tolist()[:query_t5_len]
-        query_text = " ".join(t5_tokenizer.decode(query_t5).split()[1:-1])
-
         context_ids_list, context_types_list = [], []
 
         for eid, (context_ids, title_ids) in zip(topkids, text_list):
@@ -233,10 +233,6 @@ def postprocess(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
                                                    args.verbalizer)
                 all_title_context_text.append(encoder_input_text)
 
-                decoder_input_text = "{} {}".format("Question:",
-                                                    query_text)
-                all_query_text.append(decoder_input_text)
-
 
         all_context_ids.append(np.array(context_ids_list))
         all_context_types.append(np.array(context_types_list))
@@ -244,8 +240,7 @@ def postprocess(query_uid, query_ids_t5, query_ids_t5_len, topk_evidence_data):
 
     return torch.cuda.LongTensor(all_context_ids), \
            torch.cuda.LongTensor(all_context_types), \
-           all_title_context_text, \
-           all_query_text
+           all_title_context_text
 
 # def query_extended_context_t5_format(query_ids, title_ids, context_doc_list, main_doc_idx, max_seq_length, sep_id, pad_id):
 #     enc_ids = query_ids + title_ids + [sep_id]

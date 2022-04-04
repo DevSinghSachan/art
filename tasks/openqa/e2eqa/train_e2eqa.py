@@ -35,13 +35,15 @@ def process_batch(batch):
     dec_ids = batch['dec_ids'].cuda()
     labels = batch['labels'].cuda()
     loss_mask = batch['loss_mask'].cuda()
-    query_ids_t0 = batch['query_ids_t0'].cuda()
-    query_mask_t0 = batch['query_mask_t0'].cuda()
+    prefixed_query_ids_t0 = batch['prefixed_query_ids_t0'].cuda()
+    prefixed_query_mask_t0 = batch['prefixed_query_mask_t0'].cuda()
+    prefixed_query_ids_t0_len = batch['prefixed_query_ids_t0_len'].cuda()
     reference = batch['reference']
 
     return query_uid, query_ids_bert, query_types, query_mask_bert, \
            query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, \
-           query_ids_t0, query_mask_t0, reference
+           prefixed_query_ids_t0, prefixed_query_mask_t0, \
+           prefixed_query_ids_t0_len, reference
 
 
 class CustomDataLoader(DataLoader):
@@ -69,13 +71,14 @@ class CustomDataLoader(DataLoader):
         tensorized['labels'] = torch.LongTensor(tensorized['labels'])
         tensorized['loss_mask'] = torch.FloatTensor(tensorized['loss_mask'])
 
-        query_ids_mask_t0 = self.t0_tokenizer(tensorized['query_text'],
-                                              padding='longest',
-                                              max_length=128,
-                                              truncation=True,
-                                              return_tensors='pt')
-        tensorized['query_ids_t0'] = query_ids_mask_t0.input_ids
-        tensorized['query_mask_t0'] = query_ids_mask_t0.attention_mask
+        prefixed_query_ids_mask_t0 = self.t0_tokenizer(tensorized['prefixed_query_text'],
+                                                       padding='longest',
+                                                       max_length=128,
+                                                       truncation=True,
+                                                       return_tensors='pt')
+        tensorized['prefixed_query_ids_t0'] = prefixed_query_ids_mask_t0.input_ids
+        tensorized['prefixed_query_mask_t0'] = prefixed_query_ids_mask_t0.attention_mask
+        tensorized['prefixed_query_ids_t0_len'] = torch.sum(prefixed_query_ids_mask_t0.attention_mask, dim=1)
 
         # The final key is the reference, which is already appended.
         return tensorized
@@ -151,7 +154,8 @@ def _cross_entropy_forward_step(batch, model):
 
     query_uid, query_ids_bert, query_types, query_mask_bert, \
     query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, \
-    query_ids_t0, query_mask_t0, reference = process_batch(batch_)
+    prefixed_query_ids_t0, prefixed_query_mask_t0, \
+    prefixed_query_ids_t0_len, reference = process_batch(batch_)
     assert torch.all(query_uid < 0), "query uid can't be positive"
 
     timers('batch generator').stop()
@@ -161,8 +165,8 @@ def _cross_entropy_forward_step(batch, model):
                                                   query_ids_bert,
                                                   query_types,
                                                   query_mask_bert,
-                                                  query_ids_t5,
-                                                  query_ids_t5_len)
+                                                  prefixed_query_ids_t0,
+                                                  prefixed_query_ids_t0_len)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
@@ -171,8 +175,8 @@ def _cross_entropy_forward_step(batch, model):
         eos_id = t0_tokenizer.eos_token_id
         retriever_loss = get_loss_and_retriever_utility(lm_logits_one_context,
                                                         topk_log_probs,
-                                                        query_ids_t0,
-                                                        query_mask_t0,
+                                                        prefixed_query_ids_t0,
+                                                        prefixed_query_mask_t0,
                                                         eos_id)
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])

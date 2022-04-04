@@ -81,7 +81,7 @@ def build_tokens_types_paddings_from_ids(src_ids, answer_text_ids,
     return enc_ids, tokentypes_enc, num_tokens_enc, dec_in_ids, dec_out_ids, loss_mask
 
 
-def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_out_ids, loss_mask, query_text, reference):
+def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_out_ids, loss_mask, prefixed_query_text, reference):
     token_ids = np.array(token_ids, dtype=np.int64)
     token_types = np.array(token_types, dtype=np.int64)
     token_mask = make_attention_mask(token_ids, token_ids)
@@ -96,7 +96,7 @@ def build_sample(query_uid, token_ids, token_types, num_tokens, dec_in_ids, dec_
         'dec_ids': dec_in_ids,
         'labels': dec_out_ids,
         'loss_mask': loss_mask,
-        'query_text': query_text,
+        'prefixed_query_text': prefixed_query_text,
         'reference': reference
     })
     return sample
@@ -135,7 +135,7 @@ class OpenQADataset(ABC, Dataset):
 
         # Taking the first answer
         sampled_answer = answers_copy[0]
-        labels = raw_sample['question']
+        prefixed_query_text = "{} {}".format("Question:", raw_sample['question'])
 
         ques_tokens, tokentypes_enc, num_tokens_ques, dec_in_ids, dec_out_ids, loss_mask \
             = build_tokens_types_paddings_from_text(raw_sample['question'],
@@ -150,7 +150,7 @@ class OpenQADataset(ABC, Dataset):
                               dec_in_ids,
                               dec_out_ids,
                               loss_mask,
-                              raw_sample['question'],
+                              prefixed_query_text,
                               raw_sample['answers'])
         return sample
 
