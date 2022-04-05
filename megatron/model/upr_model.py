@@ -200,18 +200,19 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
     args = get_args()
     query_uid = query_uid.tolist()
     t5_tokenizer = get_t5_tokenizer()
+    t0_tokenizer = get_t0_tokenizer()
 
     all_context_ids, all_context_types = [], []
     all_title_context_text = []
 
-    for qid, prefixed_query_t0_ids, prefixed_query_t0_len, (topkids, text_list) in zip(query_uid,
-                                                                                       prefixed_query_ids_t0,
-                                                                                       prefixed_query_ids_t0_len,
-                                                                                       topk_evidence_data):
+    for qid, prefixed_query_t0_ids, prefixed_query_t0_len, (topkids, text_list, text_list_t0) in zip(query_uid,
+                                                                                                     prefixed_query_ids_t0,
+                                                                                                     prefixed_query_ids_t0_len,
+                                                                                                     topk_evidence_data):
         k = 0
         context_ids_list, context_types_list = [], []
 
-        for eid, (context_ids, title_ids) in zip(topkids, text_list):
+        for eid, (context_ids, title_ids), (context_ids_t0, title_ids_t0) in zip(topkids, text_list, text_list_t0):
             # We should ignore the evidence from which query originates
             if qid != eid and k < args.topk_retrievals:
                 k += 1
@@ -227,6 +228,10 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
 
                 title_text = t5_tokenizer.decode(title_ids)
                 context_text = t5_tokenizer.decode(context_ids)
+
+                title_text_t0 = t0_tokenizer.decode(title_ids_t0)
+                context_text_t0 = t5_tokenizer.decode(context_ids_t0)
+                
                 encoder_input_text = "{} {} {}. {}".format(args.verbalizer_head,
                                                    title_text,
                                                    context_text,
@@ -344,6 +349,14 @@ class PreComputedEvidenceDocsRetriever(object):
         self.title_map = make_indexed_dataset(args.indexed_title_data_path,
                                               impl=args.data_impl,
                                               skip_warmup=(not args.mmap_warmup))
+
+        self.passages_map_t0 = make_indexed_dataset(args.indexed_evidence_data_path_t0,
+                                                    impl=args.data_impl,
+                                                    skip_warmup=(not args.mmap_warmup))
+
+        self.title_map_t0 = make_indexed_dataset(args.indexed_title_data_path_t0,
+                                                 impl=args.data_impl,
+                                                 skip_warmup=(not args.mmap_warmup))
         # self.wikititledocmap = WikiTitleDocMap(args.evidence_data_path)
 
     def get_evidence_embedding(self, path):
@@ -397,12 +410,17 @@ class PreComputedEvidenceDocsRetriever(object):
         for topkarray in topkindex:
             # The idx contains passage text and title
             topkarray = topkarray.tolist()
-            text_list = []
+            text_list_bert_tok = []
+            text_list_t0_tok = []
             for idx in topkarray:
                 # doc_idxs, main_doc_idx = self.wikititledocmap.get_neighbour_paragraphs(idx)
                 doctext_ids = self.passages_map[idx-1].tolist()
-                text_list.append((doctext_ids,
-                                  self.title_map[idx-1].tolist()))
-            topk_data.append((topkarray, text_list))
+                title_ids = self.title_map[idx-1].tolist()
+                text_list_bert_tok.append((doctext_ids, title_ids))
+
+                doctext_ids_t0 = self.passages_map_t0[idx - 1].tolist()
+                title_ids_t0 = self.title_map_t0[idx - 1].tolist()
+                text_list_t0_tok.append((doctext_ids_t0, title_ids_t0))
+            topk_data.append((topkarray, text_list_bert_tok, text_list_t0_tok))
 
         return topk_data, distance

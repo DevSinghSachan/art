@@ -530,7 +530,15 @@ def _add_emdr2_args(parser):
 
     group.add_argument('--indexed-title-data-path', type=str,
                        default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/wikipedia-evidence_title_document",
-                       help='Path to pretokenized and indexed evidence title from DPR paper')
+                       help='Path to pre-tokenized and indexed evidence title from DPR paper')
+
+    group.add_argument('--indexed-evidence-data-path-t0', type=str,
+                       default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/t0/wikipedia-evidence-t0_text_document",
+                       help='Path to pre-tokenized T0 and indexed Wikipedia evidence from DPR paper')
+
+    group.add_argument('--indexed-title-data-path-t0', type=str,
+                       default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/t0/wikipedia-evidence-t0_title_document",
+                       help='Path to pre-tokenized T0 and indexed evidence title from DPR paper')
 
     group.add_argument('--log-interval-input-data', type=int, default=100000,
                        help='Report progress while reading input file.')
