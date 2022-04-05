@@ -14,7 +14,6 @@ import time
 
 import torch
 
-from megatron.tokenizer import build_tokenizer
 from megatron.data import indexed_dataset
 from transformers import T5Tokenizer
 
@@ -99,13 +98,13 @@ def main():
     next(reader, None)  # skip the headers
 
     encoder = Encoder(args)
-    tokenizer = build_tokenizer(args)
+    t0_tokenizer = T5Tokenizer.from_pretrained("bigscience/T0_3B")
     pool = multiprocessing.Pool(args.workers, initializer=encoder.initializer)
     encoded_docs = pool.imap(encoder.encode, reader, 25)
     #encoded_docs = map(encoder.encode, fin)
 
     level = "document"
-    print(f"Vocab size: {tokenizer.vocab_size}")
+    print(f"Vocab size: {t0_tokenizer.vocab_size}")
     print(f"Output prefix: {args.output_prefix}")
     output_bin_files = {}
     output_idx_files = {}
@@ -117,7 +116,7 @@ def main():
                                                       key, level)
         builders[key] = indexed_dataset.make_builder(output_bin_files[key],
                                                      impl=args.dataset_impl,
-                                                     vocab_size=tokenizer.vocab_size)
+                                                     vocab_size=t0_tokenizer.vocab_size)
 
     startup_end = time.time()
     proc_start = time.time()
