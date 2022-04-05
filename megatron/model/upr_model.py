@@ -150,11 +150,12 @@ class UPRModel(MegatronModule):
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
         with torch.no_grad():
-            lm_logits = language_model(input_ids=context_tensor,
+            lm_output = language_model(input_ids=context_tensor,
                                        attention_mask=attention_mask,
                                        labels=decoder_prefix_tensor,
                                        output_attentions=False,
-                                       output_hidden_states=False).logits
+                                       output_hidden_states=False)
+            lm_logits = lm_output.logits
             _, decoder_seq_length, vocab_size = lm_logits.shape
 
             # B K x T x V -> B x K x T x V
