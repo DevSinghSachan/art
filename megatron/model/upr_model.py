@@ -236,6 +236,13 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 t0_context_title_ids.extend(verbalizer_head_ids)
                 t0_context_title_ids.extend(title_ids_t0)
                 t0_context_title_ids.extend(context_ids_t0)
+
+                # Truncating the sequence length if larger than 512
+                to_be_added_len = len(verbalizer_ids) + 1
+                if len(t0_context_title_ids) + to_be_added_len >= 512:
+                    truncate_len = len(t0_context_title_ids) + to_be_added_len - 512
+                    t0_context_title_ids = t0_context_title_ids[: -truncate_len]
+
                 t0_context_title_ids.extend(verbalizer_ids)
                 t0_context_title_ids.extend([t0_tokenizer.eos_token_id])
 
@@ -243,7 +250,6 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
 
         all_context_ids.append(np.array(context_ids_list))
         all_context_types.append(np.array(context_types_list))
-
 
     return torch.cuda.LongTensor(all_context_ids), \
            torch.cuda.LongTensor(all_context_types), \
