@@ -581,7 +581,7 @@ def _add_emdr2_args(parser):
     group.add_argument('--hf-model-name', type=str, default="bigscience/T0_3B",
                        help="huggingface transformers model name")
 
-    group.add_argument('--verbalizer', type=str, default="Please write a question based on this passage.",
+    group.add_argument('--verbalizer', type=str, default=" . Please write a question based on this passage.",
                        help='Prompt string for generating the target tokens')
 
     group.add_argument('--verbalizer-head', type=str, default="Passage: ",

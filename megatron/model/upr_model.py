@@ -202,8 +202,13 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
     t5_tokenizer = get_t5_tokenizer()
     t0_tokenizer = get_t0_tokenizer()
 
+    verbalizer_head_ids = t0_tokenizer.encode(args.verbalizer_head,
+                                              add_special_tokens=False)
+    verbalizer_ids = t0_tokenizer.encode(args.verbalizer,
+                                         add_special_tokens=False)
+
     all_context_ids, all_context_types = [], []
-    all_title_context_text = []
+    all_title_context_ids = []
 
     for qid, prefixed_query_t0_ids, prefixed_query_t0_len, (topkids, text_list, text_list_t0) in zip(query_uid,
                                                                                                      prefixed_query_ids_t0,
@@ -213,6 +218,7 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
         context_ids_list, context_types_list = [], []
 
         for eid, (context_ids, title_ids), (context_ids_t0, title_ids_t0) in zip(topkids, text_list, text_list_t0):
+            t0_context_title_ids = []
             # We should ignore the evidence from which query originates
             if qid != eid and k < args.topk_retrievals:
                 k += 1
@@ -225,18 +231,22 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 context_ids_list.append(ids)
                 context_types_list.append(types)
 
-
-                title_text = t5_tokenizer.decode(title_ids)
-                context_text = t5_tokenizer.decode(context_ids)
-
                 title_text_t0 = t0_tokenizer.decode(title_ids_t0)
                 context_text_t0 = t0_tokenizer.decode(context_ids_t0)
 
                 encoder_input_text = "{} {} {}. {}".format(args.verbalizer_head,
-                                                   title_text,
-                                                   context_text,
-                                                   args.verbalizer)
-                all_title_context_text.append(encoder_input_text)
+                                                          title_text_t0,
+                                                          context_text_t0,
+                                                          args.verbalizer)
+                encoder_input_ids = t0_tokenizer.encode(encoder_input_text)
+
+                t0_context_title_ids.extend(verbalizer_head_ids)
+                t0_context_title_ids.extend(title_ids_t0)
+                t0_context_title_ids.extend(context_ids_t0)
+                t0_context_title_ids.extend(verbalizer_ids)
+                t0_context_title_ids.extend([1]) # This is the EOS token in T0
+
+                all_title_context_ids.append(t0_context_title_ids)
 
 
         all_context_ids.append(np.array(context_ids_list))
@@ -245,7 +255,7 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
 
     return torch.cuda.LongTensor(all_context_ids), \
            torch.cuda.LongTensor(all_context_types), \
-           all_title_context_text
+           all_title_context_ids
 
 # def query_extended_context_t5_format(query_ids, title_ids, context_doc_list, main_doc_idx, max_seq_length, sep_id, pad_id):
 #     enc_ids = query_ids + title_ids + [sep_id]
