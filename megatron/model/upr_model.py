@@ -230,8 +230,8 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 context_text = t5_tokenizer.decode(context_ids)
 
                 title_text_t0 = t0_tokenizer.decode(title_ids_t0)
-                context_text_t0 = t5_tokenizer.decode(context_ids_t0)
-                
+                context_text_t0 = t0_tokenizer.decode(context_ids_t0)
+
                 encoder_input_text = "{} {} {}. {}".format(args.verbalizer_head,
                                                    title_text,
                                                    context_text,

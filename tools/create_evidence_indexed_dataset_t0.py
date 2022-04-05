@@ -43,7 +43,7 @@ class Encoder(object):
                 text = csv_title
             doc_ids = []
             for sentence in Encoder.splitter.tokenize(text):
-                sentence_ids = Encoder.tokenizer.encode(sentence)
+                sentence_ids = Encoder.tokenizer.encode(sentence, add_special_tokens=False)
                 if len(sentence_ids) > 0:
                     doc_ids.append(sentence_ids)
             ids[key] = doc_ids
