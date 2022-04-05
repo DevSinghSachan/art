@@ -94,7 +94,7 @@ def parse_args(extra_args_provider=None, defaults={},
 
     # EMDR2-specific arguments
     if args.emdr2_training:
-        for req_arg in ['stale_checkpoint_path', 'pretrained_dpr_load', 'pretrained_t5_load']:
+        for req_arg in ['stale_checkpoint_path', 'pretrained_dpr_load']:
             _check_arg_is_not_none(args, req_arg)
 
     # Checks.
