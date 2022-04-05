@@ -139,10 +139,10 @@ class UPRModel(MegatronModule):
         # B x 1 x K -> B x K
         topk_log_probs = topk_log_probs.squeeze(1)
 
-        input_encoding = self.t0_tokenizer.pad(all_title_context_ids,
+        input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids},
                                                padding='longest',
                                                max_length=512,
-                                               truncation=True,
+                                               return_attention_mask=True,
                                                return_tensors='pt')
         context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
@@ -236,7 +236,7 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 t0_context_title_ids.extend(title_ids_t0)
                 t0_context_title_ids.extend(context_ids_t0)
                 t0_context_title_ids.extend(verbalizer_ids)
-                t0_context_title_ids.extend([1]) # This is the EOS token in T0
+                t0_context_title_ids.extend([t0_tokenizer.eos_token_id])
 
                 all_title_context_ids.append(t0_context_title_ids)
 
