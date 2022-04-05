@@ -147,19 +147,14 @@ class UPRModel(MegatronModule):
         assert input_encoding.input_ids.size(1) <= 512
         context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
-        # target_encoding = self.t0_tokenizer(all_query_text,
-        #                                     padding='longest',
-        #                                     max_length=128,
-        #                                     truncation=True,
-        #                                     return_tensors='pt')
-        # decoder_prefix_tensor = target_encoding.input_ids.cuda()
-
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
         with torch.no_grad():
             lm_logits = language_model(input_ids=context_tensor,
                                        attention_mask=attention_mask,
-                                       labels=decoder_prefix_tensor).logits
+                                       labels=decoder_prefix_tensor,
+                                       output_attentions=False,
+                                       output_hidden_states=False).logits
             _, decoder_seq_length, vocab_size = lm_logits.shape
 
             # B K x T x V -> B x K x T x V
