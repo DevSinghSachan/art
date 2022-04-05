@@ -165,7 +165,7 @@ class UPRModel(MegatronModule):
                 _, decoder_seq_length, vocab_size = lm_logits.shape
 
                 # B K x T x V -> B x K x T x V
-                lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
+                # lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
 
 
         return topk_log_probs, lm_logits
