@@ -107,7 +107,7 @@ class UPRModel(MegatronModule):
                                  prefixed_query_ids_t0,
                                  prefixed_query_ids_t0_len,
                                  topk_evidence_data)
-            all_context_ids, all_context_types, all_title_context_text = output
+            all_context_ids, all_context_types, all_title_context_ids = output
 
         # reshape the all_context_tokens, all_context_mask, and seq lengths
         all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
@@ -139,11 +139,11 @@ class UPRModel(MegatronModule):
         # B x 1 x K -> B x K
         topk_log_probs = topk_log_probs.squeeze(1)
 
-        input_encoding = self.t0_tokenizer(all_title_context_text,
-                                           padding='longest',
-                                           max_length=512,
-                                           truncation=True,
-                                           return_tensors='pt')
+        input_encoding = self.t0_tokenizer.pad(all_title_context_ids,
+                                               padding='longest',
+                                               max_length=512,
+                                               truncation=True,
+                                               return_tensors='pt')
         context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
         # target_encoding = self.t0_tokenizer(all_query_text,
@@ -231,15 +231,7 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 context_ids_list.append(ids)
                 context_types_list.append(types)
 
-                title_text_t0 = t0_tokenizer.decode(title_ids_t0)
-                context_text_t0 = t0_tokenizer.decode(context_ids_t0)
-
-                encoder_input_text = "{} {} {}. {}".format(args.verbalizer_head,
-                                                          title_text_t0,
-                                                          context_text_t0,
-                                                          args.verbalizer)
-                encoder_input_ids = t0_tokenizer.encode(encoder_input_text)
-
+                # Original Input Style: Passage: <title> <passage> . Can you please write a question?
                 t0_context_title_ids.extend(verbalizer_head_ids)
                 t0_context_title_ids.extend(title_ids_t0)
                 t0_context_title_ids.extend(context_ids_t0)
@@ -247,7 +239,6 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 t0_context_title_ids.extend([1]) # This is the EOS token in T0
 
                 all_title_context_ids.append(t0_context_title_ids)
-
 
         all_context_ids.append(np.array(context_ids_list))
         all_context_types.append(np.array(context_types_list))
