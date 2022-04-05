@@ -144,6 +144,7 @@ class UPRModel(MegatronModule):
                                                max_length=512,
                                                return_attention_mask=True,
                                                return_tensors='pt')
+        assert input_encoding.input_ids.size(1) <= 512
         context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
         # target_encoding = self.t0_tokenizer(all_query_text,
