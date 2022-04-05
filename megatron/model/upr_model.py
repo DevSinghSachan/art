@@ -10,13 +10,11 @@ from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.mpu import get_mips_group, get_node_first_rank
 from megatron import get_tokenizer, get_t5_tokenizer
 from megatron.tokenizer.tokenizer import vocab_size_with_padding
-from megatron.data.mask_creation_utils import make_attention_mask_3d, make_history_mask_3d
+from megatron.data.mask_creation_utils import make_attention_mask_3d
 from megatron.data.emdr2_index import OpenRetreivalDataStore, DistributedBruteForceIndex
-from tools.inverted_title_index import WikiTitleDocMap
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 from megatron.data.orqa_wiki_dataset import build_tokens_types_paddings_from_ids as context_bert_format
 from megatron.mpu.initialize import get_data_parallel_group
-
 from megatron import get_t0_model, get_t0_tokenizer
 
 
@@ -85,6 +83,7 @@ class UPRModel(MegatronModule):
         args = get_args()
         topk = self.topk
         bsize, max_seq_len = query_ids_bert.shape
+        assert bsize == 1, "for auto-encoder pre-training, we assume a local batch size of 1"
 
         language_model = get_t0_model()
         language_model = language_model.cuda()
@@ -139,27 +138,35 @@ class UPRModel(MegatronModule):
         # B x 1 x K -> B x K
         topk_log_probs = topk_log_probs.squeeze(1)
 
-        input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids},
-                                               padding='longest',
-                                               max_length=512,
-                                               return_attention_mask=True,
-                                               return_tensors='pt')
-        assert input_encoding.input_ids.size(1) <= 512
-        context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
-
+        shard_size = 50
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
-        with torch.no_grad():
-            lm_output = language_model(input_ids=context_tensor,
-                                       attention_mask=attention_mask,
-                                       labels=decoder_prefix_tensor,
-                                       output_attentions=False,
-                                       output_hidden_states=False)
-            lm_logits = lm_output.logits
-            _, decoder_seq_length, vocab_size = lm_logits.shape
+        for i in range(0, bsize*topk, shard_size):
 
-            # B K x T x V -> B x K x T x V
-            lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
+            all_title_context_ids_view = all_title_context_ids[i: i + self.args.shard_size]
+            # pad the sequences
+            input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids_view},
+                                                   padding='longest',
+                                                   max_length=512,
+                                                   return_attention_mask=True,
+                                                   return_tensors='pt')
+            assert input_encoding.input_ids.size(1) <= 512
+            context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
+
+            decoder_prefix_tensor_view = decoder_prefix_tensor[i: i + self.args.shard_size]
+
+            with torch.no_grad():
+                lm_output = language_model(input_ids=context_tensor,
+                                           attention_mask=attention_mask,
+                                           labels=decoder_prefix_tensor_view,
+                                           output_attentions=False,
+                                           output_hidden_states=False)
+                lm_logits = lm_output.logits
+                _, decoder_seq_length, vocab_size = lm_logits.shape
+
+                # B K x T x V -> B x K x T x V
+                lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
+
 
         return topk_log_probs, lm_logits
 
@@ -180,13 +187,9 @@ class UPRModel(MegatronModule):
         """Initialize the state from pre-trained DPR model and pre-trained T5 mode on iteration zero of pretraining"""
         args = get_args()
 
-        if args.pretrained_dpr_load is None or args.pretrained_t5_load is None or args.stale_checkpoint_path is None:
+        if args.pretrained_dpr_load is None or args.stale_checkpoint_path is None:
             warnings.warn("Pretrained Checkpoints are not found. Initializing from random weights")
             return
-
-        # print("Initializing reader model from pretrained T5", flush=True)
-        # load_t5_checkpoint(self.language_model,
-        #                    custom_load_path=args.pretrained_t5_load)
 
         print("Initializing retriever model from pretrained BERT", flush=True)
         load_dualencoder_checkpoint(self.retriever_model,
@@ -428,3 +431,36 @@ class PreComputedEvidenceDocsRetriever(object):
             topk_data.append((topkarray, text_list_bert_tok, text_list_t0_tok))
 
         return topk_data, distance
+
+
+def get_kl_div_retriever(lm_logits, topk_log_probs, labels, loss_mask):
+
+    # Converting the tensors datatype to float
+    lm_logits = lm_logits.float()
+
+    topk = lm_logits.shape[1]
+    # [B, K, L, V]
+    lm_log_probs = F.log_softmax(lm_logits, dim=-1)
+
+    # Converting the loss mask to bool tensor and inverting it.
+    # and replacing the -1 in labels with 0
+    labels = labels.masked_fill(~loss_mask.to(torch.bool), 0)
+
+    # labels: [B, L] -> tiled_labels: [B, K, L]
+    tiled_labels = torch.repeat_interleave(labels.unsqueeze(1), topk, dim=1)
+
+    # [B, K, L] -> [B, K, L, 1]
+    tiled_labels = tiled_labels.unsqueeze(-1)
+
+    # [B, K, L, 1]
+    gold_log_probs = torch.gather(lm_log_probs, dim=-1, index=tiled_labels)
+
+    # [B, K, L, 1] -> [B, K, L]
+    gold_log_probs = gold_log_probs.squeeze(-1)
+
+    teacher_log_probs = torch.sum(gold_log_probs * loss_mask.unsqueeze(1), dim=2) \
+                        / torch.sum(loss_mask.unsqueeze(1), dim=2)
+    teacher_probs = torch.softmax(teacher_log_probs, dim=1)
+
+    loss = F.kl_div(topk_log_probs, teacher_probs, reduction='batchmean')
+    return loss
