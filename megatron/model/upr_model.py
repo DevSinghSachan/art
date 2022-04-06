@@ -140,6 +140,8 @@ class UPRModel(MegatronModule):
 
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
+        log_prob_list = []
+
         for i in range(0, bsize*topk, args.shard_size):
 
             all_title_context_ids_view = all_title_context_ids[i: i + args.shard_size]
@@ -163,11 +165,12 @@ class UPRModel(MegatronModule):
                 lm_logits = lm_output.logits
                 _, decoder_seq_length, vocab_size = lm_logits.shape
 
-                # B K x T x V -> B x K x T x V
-                # lm_logits = lm_logits.reshape(bsize, topk, decoder_seq_length, vocab_size)
+                log_softmax = F.log_softmax(lm_logits, dim=-1)
+                gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
+                teacher_log_probs = torch.mean(gold_log_probs, dim=1)
+                log_prob_list.extend(teacher_log_probs)
 
-
-        return topk_log_probs, lm_logits
+        return topk_log_probs, log_prob_list
 
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):
