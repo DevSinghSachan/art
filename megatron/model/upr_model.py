@@ -138,12 +138,11 @@ class UPRModel(MegatronModule):
         # B x 1 x K -> B x K
         topk_log_probs = topk_log_probs.squeeze(1)
 
-        shard_size = 50
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
-        for i in range(0, bsize*topk, shard_size):
+        for i in range(0, bsize*topk, args.shard_size):
 
-            all_title_context_ids_view = all_title_context_ids[i: i + shard_size]
+            all_title_context_ids_view = all_title_context_ids[i: i + args.shard_size]
             # pad the sequences
             input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids_view},
                                                    padding='longest',
@@ -153,7 +152,7 @@ class UPRModel(MegatronModule):
             assert input_encoding.input_ids.size(1) <= 512
             context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
 
-            decoder_prefix_tensor_view = decoder_prefix_tensor[i: i + shard_size]
+            decoder_prefix_tensor_view = decoder_prefix_tensor[i: i + args.shard_size]
 
             with torch.no_grad():
                 lm_output = language_model(input_ids=context_tensor,

@@ -587,6 +587,9 @@ def _add_emdr2_args(parser):
     group.add_argument('--verbalizer-head', type=str, default="Passage: ",
                        help='The string token used to represent encoder input')
 
+    group.add_argument('--shard-size', type=int, default=20,
+                       help='Shard size of top-K passages to get T0 logits')
+
     # faiss index
     group.add_argument('--faiss-use-gpu', action='store_true',
                        help='Whether create the FaissMIPSIndex on GPU')
