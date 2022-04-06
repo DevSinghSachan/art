@@ -130,6 +130,7 @@ class UPRModel(MegatronModule):
 
         # [B, 1, K]
         topk_sim_scores = torch.bmm(query_logits, all_context_logits.transpose(1, 2))
+
         if args.retriever_score_scaling:
             topk_sim_scores = topk_sim_scores / math.sqrt(args.hidden_size)
 
@@ -168,9 +169,11 @@ class UPRModel(MegatronModule):
                 log_softmax = F.log_softmax(lm_logits, dim=-1)
                 gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
                 teacher_log_probs = torch.mean(gold_log_probs, dim=1)
-                log_prob_list.extend(teacher_log_probs)
+                log_prob_list.append(teacher_log_probs)
 
-        return topk_log_probs, log_prob_list
+        gold_log_probs_log_softmax = F.log_softmax(torch.cat(log_prob_list).unsqueeze(0))
+
+        return topk_log_probs, gold_log_probs_log_softmax
 
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):
@@ -433,36 +436,3 @@ class PreComputedEvidenceDocsRetriever(object):
             topk_data.append((topkarray, text_list_bert_tok, text_list_t0_tok))
 
         return topk_data, distance
-
-
-def get_kl_div_retriever(lm_logits, topk_log_probs, labels, loss_mask):
-
-    # Converting the tensors datatype to float
-    lm_logits = lm_logits.float()
-
-    topk = lm_logits.shape[1]
-    # [B, K, L, V]
-    lm_log_probs = F.log_softmax(lm_logits, dim=-1)
-
-    # Converting the loss mask to bool tensor and inverting it.
-    # and replacing the -1 in labels with 0
-    labels = labels.masked_fill(~loss_mask.to(torch.bool), 0)
-
-    # labels: [B, L] -> tiled_labels: [B, K, L]
-    tiled_labels = torch.repeat_interleave(labels.unsqueeze(1), topk, dim=1)
-
-    # [B, K, L] -> [B, K, L, 1]
-    tiled_labels = tiled_labels.unsqueeze(-1)
-
-    # [B, K, L, 1]
-    gold_log_probs = torch.gather(lm_log_probs, dim=-1, index=tiled_labels)
-
-    # [B, K, L, 1] -> [B, K, L]
-    gold_log_probs = gold_log_probs.squeeze(-1)
-
-    teacher_log_probs = torch.sum(gold_log_probs * loss_mask.unsqueeze(1), dim=2) \
-                        / torch.sum(loss_mask.unsqueeze(1), dim=2)
-    teacher_probs = torch.softmax(teacher_log_probs, dim=1)
-
-    loss = F.kl_div(topk_log_probs, teacher_probs, reduction='batchmean')
-    return loss

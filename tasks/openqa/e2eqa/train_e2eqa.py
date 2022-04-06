@@ -161,23 +161,29 @@ def _cross_entropy_forward_step(batch, model):
     timers('batch generator').stop()
 
     # Forward model.
-    topk_log_probs, lm_logits_one_context = model(query_uid,
-                                                  query_ids_bert,
-                                                  query_types,
-                                                  query_mask_bert,
-                                                  prefixed_query_ids_t0,
-                                                  prefixed_query_ids_t0_len)
+    topk_log_probs, gold_log_probs_log_softmax = model(query_uid,
+                                                       query_ids_bert,
+                                                       query_types,
+                                                       query_mask_bert,
+                                                       prefixed_query_ids_t0,
+                                                       prefixed_query_ids_t0_len)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
-        t0_tokenizer = get_t0_tokenizer()
-        eos_id = t0_tokenizer.eos_token_id
-        retriever_loss = get_loss_and_retriever_utility(lm_logits_one_context,
-                                                        topk_log_probs,
-                                                        prefixed_query_ids_t0,
-                                                        prefixed_query_mask_t0,
-                                                        eos_id)
+        topk_log_probs = topk_log_probs.float()
+        gold_log_probs_log_softmax = gold_log_probs_log_softmax.float()
+
+        # t0_tokenizer = get_t0_tokenizer()
+        # eos_id = t0_tokenizer.eos_token_id
+        # retriever_loss = get_loss_and_retriever_utility(lm_logits_one_context,
+        #                                                 topk_log_probs,
+        #                                                 prefixed_query_ids_t0,
+        #                                                 prefixed_query_mask_t0,
+        #                                                 eos_id)
+        loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
+        retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax, log_target=True)
+
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])
 
