@@ -182,7 +182,7 @@ def _cross_entropy_forward_step(batch, model):
         #                                                 prefixed_query_mask_t0,
         #                                                 eos_id)
         loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
-        retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax, log_target=True)
+        retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
 
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])
