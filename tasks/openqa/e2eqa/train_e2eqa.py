@@ -114,13 +114,13 @@ def get_loss_and_retriever_utility(gold_log_probs, topk_log_probs, labels, loss_
     # gold_log_probs = gold_log_probs.squeeze(-1)
 
     # [B, K, L]
-    joint_gold_log_probs = topk_log_probs.unsqueeze(-1) + gold_log_probs.unsqueeze(0)
+    joint_gold_log_probs = topk_log_probs + gold_log_probs
 
     # [B, L] -> [B, K, L]
     marginal_gold_log_probs = torch.logsumexp(joint_gold_log_probs, dim=1)
 
     # Applying mask to marginal loss
-    lm_loss = -1 * torch.sum(marginal_gold_log_probs * loss_mask) / torch.sum(loss_mask)
+    lm_loss = -1 * marginal_gold_log_probs
 
     return lm_loss
 
@@ -146,23 +146,24 @@ def _cross_entropy_forward_step(batch, model):
     timers('batch generator').stop()
 
     # Forward model.
-    topk_log_probs, gold_log_probs_log_softmax = model(query_uid,
-                                                       query_ids_bert,
-                                                       query_types,
-                                                       query_mask_bert,
-                                                       prefixed_query_ids_t0,
-                                                       prefixed_query_ids_t0_len)
+    topk_log_probs, gold_log_probs = model(query_uid,
+                                           query_ids_bert,
+                                           query_types,
+                                           query_mask_bert,
+                                           prefixed_query_ids_t0,
+                                           prefixed_query_ids_t0_len)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
 
         # topk_log_probs = topk_log_probs.float()
-        # gold_log_probs_log_softmax = gold_log_probs_log_softmax.float()
+        # gold_log_probs = gold_log_probs.float()
+        # gold_log_probs_log_softmax = F.log_softmax(gold_log_probs, dim=1)
         # loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
         # retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
 
-        retriever_loss = get_loss_and_retriever_utility(gold_log_probs_log_softmax,
+        retriever_loss = get_loss_and_retriever_utility(gold_log_probs,
                                                         topk_log_probs,
                                                         prefixed_query_ids_t0,
                                                         prefixed_query_mask_t0)

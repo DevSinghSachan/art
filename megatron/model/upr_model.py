@@ -173,9 +173,10 @@ class UPRModel(MegatronModule):
                 teacher_log_probs = torch.mean(gold_log_probs, dim=1)
                 log_prob_list.append(teacher_log_probs)
 
-        gold_log_probs_log_softmax = F.log_softmax(torch.cat(log_prob_list).unsqueeze(0), dim=1)
+        # gold_log_probs_log_softmax = F.log_softmax(torch.cat(log_prob_list).unsqueeze(0), dim=1)
+        gold_log_probs = torch.cat(log_prob_list).unsqueeze(0)
 
-        return topk_log_probs, gold_log_probs_log_softmax
+        return topk_log_probs, gold_log_probs
 
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):
