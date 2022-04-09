@@ -85,33 +85,33 @@ class CustomDataLoader(DataLoader):
 
 
 # Most of this code is implemented based on the open-source REALM codebase
-def get_loss_and_retriever_utility(lm_logits, topk_log_probs, labels, loss_mask, eos_id):
+def get_loss_and_retriever_utility(gold_log_probs, topk_log_probs, labels, loss_mask):
     """
     This function computes loss in a stable manner, and also computes retriever utility
     """
     # Converting the tensors datatype to float
-    lm_logits = lm_logits.float()
-    topk_log_probs = topk_log_probs.float()
-
-    topk = lm_logits.shape[1]
-    # [B, K, L, V]
-    lm_log_probs = F.log_softmax(lm_logits, dim=-1)
-
-    # Converting the loss mask to bool tensor and inverting it.
-    # and replacing the -1 in labels with 0
-    labels = labels.masked_fill(~loss_mask.to(torch.bool), 0)
-
-    # labels: [B, L] -> tiled_labels: [B, K, L]
-    tiled_labels = torch.repeat_interleave(labels.unsqueeze(1), topk, dim=1)
-
-    # [B, K, L] -> [B, K, L, 1]
-    tiled_labels = tiled_labels.unsqueeze(-1)
-
-    # [B, K, L, 1]
-    gold_log_probs = torch.gather(lm_log_probs, dim=-1, index=tiled_labels)
-
-    # [B, K, L, 1] -> [B, K, L]
-    gold_log_probs = gold_log_probs.squeeze(-1)
+    # lm_logits = lm_logits.float()
+    # topk_log_probs = topk_log_probs.float()
+    #
+    # topk = lm_logits.shape[1]
+    # # [B, K, L, V]
+    # lm_log_probs = F.log_softmax(lm_logits, dim=-1)
+    #
+    # # Converting the loss mask to bool tensor and inverting it.
+    # # and replacing the -1 in labels with 0
+    # # labels = labels.masked_fill(~loss_mask.to(torch.bool), 0)
+    #
+    # # labels: [B, L] -> tiled_labels: [B, K, L]
+    # tiled_labels = torch.repeat_interleave(labels.unsqueeze(1), topk, dim=1)
+    #
+    # # [B, K, L] -> [B, K, L, 1]
+    # tiled_labels = tiled_labels.unsqueeze(-1)
+    #
+    # # [B, K, L, 1]
+    # gold_log_probs = torch.gather(lm_log_probs, dim=-1, index=tiled_labels)
+    #
+    # # [B, K, L, 1] -> [B, K, L]
+    # gold_log_probs = gold_log_probs.squeeze(-1)
 
     # [B, K, L]
     joint_gold_log_probs = topk_log_probs.unsqueeze(-1) + gold_log_probs
@@ -122,22 +122,7 @@ def get_loss_and_retriever_utility(lm_logits, topk_log_probs, labels, loss_mask,
     # Applying mask to marginal loss
     lm_loss = -1 * torch.sum(marginal_gold_log_probs * loss_mask) / torch.sum(loss_mask)
 
-    # # Retriever Utility is marginal log prob minus the log prob of NULL Block
-    # # NULL block probability is the last one: gold_log_probs[:, -1, :]
-    # # [B, K]
-    # retriever_utility = marginal_gold_log_probs - gold_log_probs[:, -1, :]
-
-    # # Mask out the EOS id and sentinel tokens to compute retriever utility.
-    # # We are masking out the EOS and sentinel tokens because, their loss is very for both with and without retrieved contexts
-    # # and hence they are not useful to ascertain the utility of the retrieved tokens.
-    # # The trick used here is that the sentinel tokens have ids higher than the EOS id, so they all will be replaced with 0.
-    # loss_mask_retriever_utility = loss_mask.masked_fill(labels >= eos_id, 0)
-    # assert torch.sum(loss_mask_retriever_utility) > 0
-    # retriever_utility = torch.sum(retriever_utility * loss_mask_retriever_utility) / torch.sum(loss_mask_retriever_utility)
-    #
-    # null_block_lm_loss = -1 * torch.sum(gold_log_probs[:, -1, :] * loss_mask) / torch.sum(loss_mask)
-
-    return lm_loss # , retriever_utility, null_block_lm_loss
+    return lm_loss
 
 
 def _cross_entropy_forward_step(batch, model):
@@ -161,28 +146,27 @@ def _cross_entropy_forward_step(batch, model):
     timers('batch generator').stop()
 
     # Forward model.
-    topk_log_probs, gold_log_probs_log_softmax = model(query_uid,
-                                                       query_ids_bert,
-                                                       query_types,
-                                                       query_mask_bert,
-                                                       prefixed_query_ids_t0,
-                                                       prefixed_query_ids_t0_len)
+    topk_log_probs, gold_log_probs_log_softmax, gold_log_probs = model(query_uid,
+                                                                              query_ids_bert,
+                                                                              query_types,
+                                                                              query_mask_bert,
+                                                                              prefixed_query_ids_t0,
+                                                                              prefixed_query_ids_t0_len)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
-        topk_log_probs = topk_log_probs.float()
-        gold_log_probs_log_softmax = gold_log_probs_log_softmax.float()
 
-        # t0_tokenizer = get_t0_tokenizer()
-        # eos_id = t0_tokenizer.eos_token_id
-        # retriever_loss = get_loss_and_retriever_utility(lm_logits_one_context,
-        #                                                 topk_log_probs,
-        #                                                 prefixed_query_ids_t0,
-        #                                                 prefixed_query_mask_t0,
-        #                                                 eos_id)
-        loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
-        retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
+        # topk_log_probs = topk_log_probs.float()
+        # gold_log_probs_log_softmax = gold_log_probs_log_softmax.float()
+        # loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
+        # retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
+
+        retriever_loss = get_loss_and_retriever_utility(gold_log_probs,
+                                                        topk_log_probs,
+                                                        prefixed_query_ids_t0,
+                                                        prefixed_query_mask_t0)
+
 
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])
