@@ -114,7 +114,7 @@ def get_loss_and_retriever_utility(gold_log_probs, topk_log_probs, labels, loss_
     # gold_log_probs = gold_log_probs.squeeze(-1)
 
     # [B, K, L]
-    joint_gold_log_probs = topk_log_probs.unsqueeze(-1) + gold_log_probs
+    joint_gold_log_probs = topk_log_probs.unsqueeze(-1) + gold_log_probs.unsqueeze(0)
 
     # [B, L] -> [B, K, L]
     marginal_gold_log_probs = torch.logsumexp(joint_gold_log_probs, dim=1)
