@@ -138,6 +138,10 @@ def _build_t0_model(args):
     global _GLOBAL_T0_MODEL
     _ensure_var_is_not_initialized(_GLOBAL_T0_MODEL, 'T0-model')
     _GLOBAL_T0_MODEL = T5ForConditionalGeneration.from_pretrained(args.hf_model_name)
+
+    if args.t0_model_in_bf16:
+        _GLOBAL_T0_MODEL = _GLOBAL_T0_MODEL.bfloat16()
+
     for param in _GLOBAL_T0_MODEL.parameters():
         param.requires_grad = False
     return _GLOBAL_T0_MODEL

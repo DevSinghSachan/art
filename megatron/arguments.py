@@ -590,6 +590,9 @@ def _add_emdr2_args(parser):
     group.add_argument('--shard-size', type=int, default=20,
                        help='Shard size of top-K passages to get T0 logits')
 
+    group.add_argument('--t0-model-in-bf16', action='store_true',
+                       help='Store the T0 model in BF16 data format')
+
     # faiss index
     group.add_argument('--faiss-use-gpu', action='store_true',
                        help='Whether create the FaissMIPSIndex on GPU')

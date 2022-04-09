@@ -84,34 +84,10 @@ class CustomDataLoader(DataLoader):
         return tensorized
 
 
-# Most of this code is implemented based on the open-source REALM codebase
 def get_loss_and_retriever_utility(gold_log_probs, topk_log_probs, labels, loss_mask):
     """
     This function computes loss in a stable manner, and also computes retriever utility
     """
-    # Converting the tensors datatype to float
-    # lm_logits = lm_logits.float()
-    # topk_log_probs = topk_log_probs.float()
-    #
-    # topk = lm_logits.shape[1]
-    # # [B, K, L, V]
-    # lm_log_probs = F.log_softmax(lm_logits, dim=-1)
-    #
-    # # Converting the loss mask to bool tensor and inverting it.
-    # # and replacing the -1 in labels with 0
-    # # labels = labels.masked_fill(~loss_mask.to(torch.bool), 0)
-    #
-    # # labels: [B, L] -> tiled_labels: [B, K, L]
-    # tiled_labels = torch.repeat_interleave(labels.unsqueeze(1), topk, dim=1)
-    #
-    # # [B, K, L] -> [B, K, L, 1]
-    # tiled_labels = tiled_labels.unsqueeze(-1)
-    #
-    # # [B, K, L, 1]
-    # gold_log_probs = torch.gather(lm_log_probs, dim=-1, index=tiled_labels)
-    #
-    # # [B, K, L, 1] -> [B, K, L]
-    # gold_log_probs = gold_log_probs.squeeze(-1)
 
     # [B, K, L]
     joint_gold_log_probs = topk_log_probs + gold_log_probs
@@ -157,55 +133,21 @@ def _cross_entropy_forward_step(batch, model):
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
 
-        # topk_log_probs = topk_log_probs.float()
-        # gold_log_probs = gold_log_probs.float()
-        # gold_log_probs_log_softmax = F.log_softmax(gold_log_probs, dim=1)
-        # loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
-        # retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
+        topk_log_probs = topk_log_probs.float()
+        gold_log_probs = gold_log_probs.float()
+        gold_log_probs_log_softmax = F.log_softmax(gold_log_probs, dim=1)
+        loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
+        retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
 
-        retriever_loss = get_loss_and_retriever_utility(gold_log_probs,
-                                                        topk_log_probs,
-                                                        prefixed_query_ids_t0,
-                                                        prefixed_query_mask_t0)
-
+        # retriever_loss = get_loss_and_retriever_utility(gold_log_probs,
+        #                                                 topk_log_probs,
+        #                                                 prefixed_query_ids_t0,
+        #                                                 prefixed_query_mask_t0)
 
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])
 
     return net_loss, {'retriever_loss': reduced_loss[0]}
-
-
-def get_kl_div_retriever(lm_logits, topk_log_probs, labels, loss_mask):
-
-    # Converting the tensors datatype to float
-    lm_logits = lm_logits.float()
-    topk_log_probs = topk_log_probs.float()
-
-    topk = lm_logits.shape[1]
-    # [B, K, L, V]
-    lm_log_probs = F.log_softmax(lm_logits, dim=-1)
-
-    # Converting the loss mask to bool tensor and inverting it.
-    # and replacing the -1 in labels with 0
-    labels = labels.masked_fill(~loss_mask.to(torch.bool), 0)
-
-    # labels: [B, L] -> tiled_labels: [B, K, L]
-    tiled_labels = torch.repeat_interleave(labels.unsqueeze(1), topk, dim=1)
-
-    # [B, K, L] -> [B, K, L, 1]
-    tiled_labels = tiled_labels.unsqueeze(-1)
-
-    # [B, K, L, 1]
-    gold_log_probs = torch.gather(lm_log_probs, dim=-1, index=tiled_labels)
-
-    # [B, K, L, 1] -> [B, K, L]
-    gold_log_probs = gold_log_probs.squeeze(-1)
-
-    teacher_log_probs = torch.sum(gold_log_probs * loss_mask.unsqueeze(1), dim=2) / torch.sum(loss_mask.unsqueeze(1), dim=2)
-    teacher_probs = torch.softmax(teacher_log_probs, dim=1)
-
-    loss = F.kl_div(topk_log_probs, teacher_probs, reduction='batchmean')
-    return loss
 
 
 def reader_em_score(model, dataloader, topk_retrievals):
