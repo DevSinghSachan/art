@@ -142,7 +142,6 @@ class UPRModel(MegatronModule):
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
 
         log_prob_list = []
-        gold_log_probs_list = []
 
         for i in range(0, bsize*topk, args.shard_size):
 
@@ -169,14 +168,14 @@ class UPRModel(MegatronModule):
 
                 log_softmax = F.log_softmax(lm_logits, dim=-1)
                 gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
-                gold_log_probs_list.append(gold_log_probs)
+
+                # this will work because the batch size is 1 and this implies no padding of the labels
                 teacher_log_probs = torch.mean(gold_log_probs, dim=1)
                 log_prob_list.append(teacher_log_probs)
 
         gold_log_probs_log_softmax = F.log_softmax(torch.cat(log_prob_list).unsqueeze(0), dim=1)
-        gold_log_probs_all = torch.cat(gold_log_probs_list, dim=0)
 
-        return topk_log_probs, gold_log_probs_log_softmax, gold_log_probs_all
+        return topk_log_probs, gold_log_probs_log_softmax
 
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):

@@ -146,12 +146,12 @@ def _cross_entropy_forward_step(batch, model):
     timers('batch generator').stop()
 
     # Forward model.
-    topk_log_probs, gold_log_probs_log_softmax, gold_log_probs = model(query_uid,
-                                                                              query_ids_bert,
-                                                                              query_types,
-                                                                              query_mask_bert,
-                                                                              prefixed_query_ids_t0,
-                                                                              prefixed_query_ids_t0_len)
+    topk_log_probs, gold_log_probs_log_softmax = model(query_uid,
+                                                       query_ids_bert,
+                                                       query_types,
+                                                       query_mask_bert,
+                                                       prefixed_query_ids_t0,
+                                                       prefixed_query_ids_t0_len)
 
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
@@ -162,7 +162,7 @@ def _cross_entropy_forward_step(batch, model):
         # loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
         # retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
 
-        retriever_loss = get_loss_and_retriever_utility(gold_log_probs,
+        retriever_loss = get_loss_and_retriever_utility(gold_log_probs_log_softmax,
                                                         topk_log_probs,
                                                         prefixed_query_ids_t0,
                                                         prefixed_query_mask_t0)
