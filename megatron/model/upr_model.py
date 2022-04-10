@@ -163,7 +163,7 @@ class UPRModel(MegatronModule):
                                            labels=decoder_prefix_tensor_view,
                                            output_attentions=False,
                                            output_hidden_states=False)
-                lm_logits = lm_output.logits
+                lm_logits = lm_output.logits.float()
                 _, decoder_seq_length, vocab_size = lm_logits.shape
 
                 log_softmax = F.log_softmax(lm_logits, dim=-1)
