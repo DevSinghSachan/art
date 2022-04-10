@@ -330,7 +330,8 @@ def _build_train_valid_dataloaders(train_dataset, valid_dataset):
 
 def get_retrieval_score():
     args = get_args()
-    evaluator = OpenRetrievalEvaluator()
+    evaluator = OpenRetrievalEvaluator(custom_load_path=args.load,
+                                       key_list=['retriever/biencoder_model'])
     if args.qa_file_dev is not None:
         evaluator.evaluate(args.qa_file_dev, "DEV")
         torch.distributed.barrier()

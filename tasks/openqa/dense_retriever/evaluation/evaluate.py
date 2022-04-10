@@ -14,7 +14,7 @@ from megatron.data.emdr2_index import OpenRetreivalDataStore, FaissMIPSIndex
 
 
 class OpenRetrievalEvaluator(object):
-    def __init__(self):
+    def __init__(self, custom_load_path=None, key_list=None):
         args = get_args()
         self.embedding_size = args.hidden_size
         self.faiss_use_gpu = args.faiss_use_gpu
@@ -28,7 +28,9 @@ class OpenRetrievalEvaluator(object):
         only_query_model = True
         model = get_model(lambda: dualencoder_model_provider(only_query_model=only_query_model))
         self.model = load_dualencoder_checkpoint(model,
-                                                 only_query_model=only_query_model)
+                                                 only_query_model=only_query_model,
+                                                 custom_load_path=custom_load_path,
+                                                 key_list=key_list)
         self.model.eval()
         self.faiss_wrapper()
 
