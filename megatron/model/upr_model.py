@@ -171,7 +171,7 @@ class UPRModel(MegatronModule):
                 gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
 
                 # this will work because the batch size is 1 and this implies no padding of the labels
-                teacher_log_probs = torch.mean(gold_log_probs, dim=1)
+                teacher_log_probs = torch.mean(gold_log_probs[:, :prefixed_query_ids_t0_len], dim=1)
                 log_prob_list.append(teacher_log_probs)
 
         # gold_log_probs_log_softmax = F.log_softmax(torch.cat(log_prob_list).unsqueeze(0), dim=1)

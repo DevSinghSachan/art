@@ -74,6 +74,7 @@ class CustomDataLoader(DataLoader):
         prefixed_query_ids_mask_t0 = self.t0_tokenizer(tensorized['prefixed_query_text'],
                                                        padding='longest',
                                                        max_length=128,
+                                                       pad_to_multiple_of=8,
                                                        truncation=True,
                                                        return_tensors='pt')
         tensorized['prefixed_query_ids_t0'] = prefixed_query_ids_mask_t0.input_ids
