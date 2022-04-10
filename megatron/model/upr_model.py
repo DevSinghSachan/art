@@ -150,6 +150,7 @@ class UPRModel(MegatronModule):
             input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids_view},
                                                    padding='longest',
                                                    max_length=512,
+                                                   pad_to_multiple_of=8,
                                                    return_attention_mask=True,
                                                    return_tensors='pt')
             assert input_encoding.input_ids.size(1) <= 512
