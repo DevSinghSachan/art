@@ -33,10 +33,6 @@ class UPRModel(MegatronModule):
         args = get_args()
         self.topk = args.topk_retrievals
 
-        # print_rank_0('building Reader for EMDR2 ...')
-        # t5_tokenizer = get_t5_tokenizer()
-        # t5_vocab_size = vocab_size_with_padding(t5_tokenizer.vocab_size, args)
-
         if args.topk_retrievals > 0:
             bert_tokenizer = get_tokenizer()
             bert_vocab_size = vocab_size_with_padding(bert_tokenizer.vocab_size,
@@ -170,13 +166,11 @@ class UPRModel(MegatronModule):
                 log_softmax = F.log_softmax(lm_logits, dim=-1)
                 gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
 
-                # this will work because the batch size is 1 and this implies no padding of the labels
+                # this will work because the batch size is 1 and this implies all decoder labels have the same length
                 teacher_log_probs = torch.mean(gold_log_probs[:, :prefixed_query_ids_t0_len], dim=1)
                 log_prob_list.append(teacher_log_probs)
 
-        # gold_log_probs_log_softmax = F.log_softmax(torch.cat(log_prob_list).unsqueeze(0), dim=1)
         gold_log_probs = torch.cat(log_prob_list).unsqueeze(0)
-
         return topk_log_probs, gold_log_probs
 
 
@@ -263,61 +257,6 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
            torch.cuda.LongTensor(all_context_types), \
            all_title_context_ids
 
-# def query_extended_context_t5_format(query_ids, title_ids, context_doc_list, main_doc_idx, max_seq_length, sep_id, pad_id):
-#     enc_ids = query_ids + title_ids + [sep_id]
-#
-#     def prepare_context_ids(maxlen):
-#         context_ids = context_doc_list[main_doc_idx]
-#
-#         if len(context_ids) > maxlen or len(context_doc_list) == 1:
-#             context_ids = context_ids[0: maxlen]
-#             return context_ids
-#         else:
-#             extra_len = maxlen - len(context_ids)
-#             if main_doc_idx == 0:
-#                 extra_context_ids = []
-#                 for item in context_doc_list[1:]:
-#                     extra_context_ids.extend(item)
-#                 if len(extra_context_ids) > extra_len:
-#                     extra_context_ids = extra_context_ids[0: extra_len]
-#                 context_ids = context_ids + extra_context_ids
-#                 return context_ids
-#             elif main_doc_idx == -1:
-#                 extra_context_ids = []
-#                 for item in context_doc_list[:-1]:
-#                     extra_context_ids.extend(item)
-#                 if len(extra_context_ids) > extra_len:
-#                     offset = len(extra_context_ids) - extra_len + 1
-#                     extra_context_ids = extra_context_ids[offset:]
-#                 context_ids = extra_context_ids + context_ids
-#                 return context_ids
-#             else:  # for condition main_doc_idx=1
-#                 left_extra_context_ids = context_doc_list[0]
-#                 if len(left_extra_context_ids) > extra_len:
-#                     offset = len(left_extra_context_ids) - extra_len + 1
-#                     left_extra_context_ids = left_extra_context_ids[offset:]
-#                     context_ids = left_extra_context_ids + context_ids
-#                     return context_ids
-#                 context_ids = left_extra_context_ids + context_ids
-#                 if len(context_doc_list) == 3:
-#                     right_extra_context_ids = context_doc_list[2]
-#                     len_remaining = extra_len - len(left_extra_context_ids)
-#                     if len(right_extra_context_ids) > len_remaining:
-#                         right_extra_context_ids = right_extra_context_ids[:len_remaining]
-#                     context_ids = context_ids + right_extra_context_ids
-#                 return context_ids
-#
-#     remaining_len = max(0, max_seq_length - len(enc_ids) - 1)
-#     extended_context_ids = prepare_context_ids(remaining_len)
-#     enc_ids.extend(extended_context_ids)
-#     enc_ids.append(sep_id)
-#
-#     padding_length = max_seq_length - len(enc_ids)
-#     if padding_length > 0:
-#         enc_ids.extend([pad_id] * padding_length)
-#
-#     return enc_ids
-
 
 def query_single_context_t5_format(query_ids, title_ids, context_ids, max_seq_length, sep_id, pad_id):
     enc_ids = []
@@ -373,7 +312,6 @@ class PreComputedEvidenceDocsRetriever(object):
         self.title_map_t0 = make_indexed_dataset(args.indexed_title_data_path_t0,
                                                  impl=args.data_impl,
                                                  skip_warmup=(not args.mmap_warmup))
-        # self.wikititledocmap = WikiTitleDocMap(args.evidence_data_path)
 
     def get_evidence_embedding(self, path):
         self.evidence_embedder_obj = OpenRetreivalDataStore(path,
@@ -429,7 +367,6 @@ class PreComputedEvidenceDocsRetriever(object):
             text_list_bert_tok = []
             text_list_t0_tok = []
             for idx in topkarray:
-                # doc_idxs, main_doc_idx = self.wikititledocmap.get_neighbour_paragraphs(idx)
                 doctext_ids = self.passages_map[idx-1].tolist()
                 title_ids = self.title_map[idx-1].tolist()
                 text_list_bert_tok.append((doctext_ids, title_ids))

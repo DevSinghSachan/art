@@ -19,6 +19,8 @@ from megatron.mpu import vocab_parallel_cross_entropy as cross_entropy
 from megatron.model.search_strategy import SampleOrGreedySearch, BeamSearch
 from tasks.openqa.e2eqa.eval_utils import exact_match_score, metric_max_over_ground_truths
 from megatron.mpu.initialize import get_new_index_ready, get_new_chkpt_ready, get_gloo_comm_group
+from megatron.indexer_emdr2 import IndexBuilder
+from tasks.openqa.dense_retriever.evaluation.evaluate import OpenRetrievalEvaluator
 
 
 NEW_INDEX_READY = None
@@ -85,23 +87,6 @@ class CustomDataLoader(DataLoader):
         return tensorized
 
 
-def get_loss_and_retriever_utility(gold_log_probs, topk_log_probs, labels, loss_mask):
-    """
-    This function computes loss in a stable manner, and also computes retriever utility
-    """
-
-    # [B, K, L]
-    joint_gold_log_probs = topk_log_probs + gold_log_probs
-
-    # [B, L] -> [B, K, L]
-    marginal_gold_log_probs = torch.logsumexp(joint_gold_log_probs, dim=1)
-
-    # Applying mask to marginal loss
-    lm_loss = -1 * marginal_gold_log_probs
-
-    return lm_loss
-
-
 def _cross_entropy_forward_step(batch, model):
     """Simple forward step with cross-entropy loss."""
     args = get_args()
@@ -133,17 +118,11 @@ def _cross_entropy_forward_step(batch, model):
     # Retriever loss
     retriever_loss = torch.FloatTensor([0]).cuda()
     if args.update_retriever:
-
         topk_log_probs = topk_log_probs.float()
         gold_log_probs = gold_log_probs.float()
         gold_log_probs_log_softmax = F.log_softmax(gold_log_probs, dim=1)
         loss_func = torch.nn.KLDivLoss(reduction="batchmean", log_target=True)
         retriever_loss = loss_func(topk_log_probs, gold_log_probs_log_softmax)
-
-        # retriever_loss = get_loss_and_retriever_utility(gold_log_probs,
-        #                                                 topk_log_probs,
-        #                                                 prefixed_query_ids_t0,
-        #                                                 prefixed_query_mask_t0)
 
     net_loss = retriever_loss
     reduced_loss = reduce_losses([retriever_loss])
@@ -349,6 +328,24 @@ def _build_train_valid_dataloaders(train_dataset, valid_dataset):
     return train_dataloader, valid_dataloader
 
 
+def get_retrieval_score():
+    args = get_args()
+    evaluator = OpenRetrievalEvaluator()
+    if args.qa_file_dev is not None:
+        evaluator.evaluate(args.qa_file_dev, "DEV")
+        torch.distributed.barrier()
+    if args.qa_file_test is not None:
+        evaluator.evaluate(args.qa_file_test, "TEST")
+        torch.distributed.barrier()
+
+
+def call_evidence_index_builder():
+    args = get_args()
+    index_builder = IndexBuilder(custom_load_path=args.load,
+                                 key_list=['retriever/biencoder_model'])
+    index_builder.build_and_save_index()
+
+
 def _train(model, optimizer, lr_scheduler, forward_step,
            train_dataloader, valid_dataloader, end_of_epoch_callback, end_of_epoch_callback2):
     """Train the model."""
@@ -371,24 +368,26 @@ def _train(model, optimizer, lr_scheduler, forward_step,
     new_index_recv_handle = None
 
     # Async Index Update Part
-    if args.async_indexer:
-        global NEW_INDEX_READY
-        NEW_INDEX_READY = get_new_index_ready()
+    # if args.async_indexer:
+    #     global NEW_INDEX_READY
+    #     NEW_INDEX_READY = get_new_index_ready()
+    #
+    #     global NEW_CHKPT_READY
+    #     NEW_CHKPT_READY = get_new_chkpt_ready()
+    #
+    #     # Broad this, so that the indexer group can start indexing
+    #     torch.distributed.broadcast(NEW_CHKPT_READY,
+    #                                 src=0,
+    #                                 group=get_gloo_comm_group())
+    #
+    #     new_index_recv_handle = torch.distributed.broadcast(NEW_INDEX_READY,
+    #                                                         src=args.max_training_rank,
+    #                                                         group=get_gloo_comm_group(),
+    #                                                         async_op=True)
+    #     last_reload_iteration = iteration
 
-        global NEW_CHKPT_READY
-        NEW_CHKPT_READY = get_new_chkpt_ready()
-
-        # Broad this, so that the indexer group can start indexing
-        torch.distributed.broadcast(NEW_CHKPT_READY,
-                                    src=0,
-                                    group=get_gloo_comm_group())
-
-        new_index_recv_handle = torch.distributed.broadcast(NEW_INDEX_READY,
-                                                            src=args.max_training_rank,
-                                                            group=get_gloo_comm_group(),
-                                                            async_op=True)
+    if args.compute_fresh_evidence_embeddings:
         last_reload_iteration = iteration
-
 
     # Memory reporting flag.
     report_memory_flag = True
@@ -411,38 +410,54 @@ def _train(model, optimizer, lr_scheduler, forward_step,
             start_iteration = 0
 
             # if enough iterations have gone by to consider reloading the index during EMDR2 training
-            if args.async_indexer and iteration >= last_reload_iteration + args.index_reload_interval:
-                while True:
-                    # if index has been completed, so reload and save checkpoint before proceeding
-                    if new_index_recv_handle.is_completed():
-                        print_rank_0(">Training Group: Saving model and reloading index")
-                        save_checkpoint(iteration, model, optimizer, lr_scheduler)
+            # if args.async_indexer and iteration >= last_reload_iteration + args.index_reload_interval:
+            #     while True:
+            #         # if index has been completed, so reload and save checkpoint before proceeding
+            #         if new_index_recv_handle.is_completed():
+            #             print_rank_0(">Training Group: Saving model and reloading index")
+            #             save_checkpoint(iteration, model, optimizer, lr_scheduler)
+            #
+            #             # send handle
+            #             torch.distributed.broadcast(NEW_CHKPT_READY,
+            #                                         src=0,
+            #                                         group=get_gloo_comm_group())
+            #
+            #             print_rank_0("Training Group: Updating MIPS Index")
+            #             # get model without FP16 and/or TorchDDP wrappers
+            #             unwrapped_model = model
+            #             while hasattr(unwrapped_model, 'module'):
+            #                 unwrapped_model = unwrapped_model.module
+            #             unwrapped_model.evidence_retriever.update_evidence_embedding()
+            #             print_rank_0("Training Group: MIPS Index Updated")
+            #
+            #             # new recv handle
+            #             new_index_recv_handle = torch.distributed.broadcast(NEW_INDEX_READY,
+            #                                                                 src=args.max_training_rank,
+            #                                                                 group=get_gloo_comm_group(),
+            #                                                                 async_op=True)
+            #             print_rank_0("Training Group: Async wait for NEW_INDEX_READY")
+            #             last_reload_iteration = iteration
+            #             break
+            #
+            #         # wait for indexer to finish first
+            #         else:
+            #             time.sleep(5)
 
-                        # send handle
-                        torch.distributed.broadcast(NEW_CHKPT_READY,
-                                                    src=0,
-                                                    group=get_gloo_comm_group())
+            if args.compute_fresh_evidence_embeddings and iteration >= last_reload_iteration + args.index_reload_interval:
+                # Recompute evidence embeddings
+                call_evidence_index_builder()
+                print_rank_0("Updating MIPS Index")
+                # get model without FP16 and/or TorchDDP wrappers
+                unwrapped_model = model
+                while hasattr(unwrapped_model, 'module'):
+                    unwrapped_model = unwrapped_model.module
+                unwrapped_model.evidence_retriever.update_evidence_embedding()
+                print_rank_0("Training Group: MIPS Index Updated")
 
-                        print_rank_0("Training Group: Updating MIPS Index")
-                        # get model without FP16 and/or TorchDDP wrappers
-                        unwrapped_model = model
-                        while hasattr(unwrapped_model, 'module'):
-                            unwrapped_model = unwrapped_model.module
-                        unwrapped_model.evidence_retriever.update_evidence_embedding()
-                        print_rank_0("Training Group: MIPS Index Updated")
+                # Get the retrieval score
+                get_retrieval_score()
 
-                        # new recv handle
-                        new_index_recv_handle = torch.distributed.broadcast(NEW_INDEX_READY,
-                                                                            src=args.max_training_rank,
-                                                                            group=get_gloo_comm_group(),
-                                                                            async_op=True)
-                        print_rank_0("Training Group: Async wait for NEW_INDEX_READY")
-                        last_reload_iteration = iteration
-                        break
-
-                    # wait for indexer to finish first
-                    else:
-                        time.sleep(5)
+                last_reload_iteration = iteration
 
             # Train for one step.
             losses_dict, skipped_iter = train_step(forward_step, batch, model,

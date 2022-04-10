@@ -593,6 +593,9 @@ def _add_emdr2_args(parser):
     group.add_argument('--t0-model-in-bf16', action='store_true',
                        help='Store the T0 model in BF16 data format')
 
+    group.add_argument('--compute-fresh-evidence-embeddings', action='store_true',
+                       help='Compute fresh evidence embeddings after every --index-reload-interval steps')
+
     # faiss index
     group.add_argument('--faiss-use-gpu', action='store_true',
                        help='Whether create the FaissMIPSIndex on GPU')

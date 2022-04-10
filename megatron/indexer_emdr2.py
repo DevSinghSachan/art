@@ -37,7 +37,7 @@ def get_one_epoch_dataloader(dataset, batch_size=None):
 
 class IndexBuilder(object):
 
-    def __init__(self, call_load_attributes_func=True):
+    def __init__(self, call_load_attributes_func=True, custom_load_path=None, key_list=None):
         args = get_args()
         self.model = None
         self.dataloader = None
@@ -51,7 +51,8 @@ class IndexBuilder(object):
         self.batch_size = args.indexer_batch_size
 
         if call_load_attributes_func:
-            self.load_attributes()
+            self.load_attributes(custom_load_path=custom_load_path,
+                                 key_list=key_list)
         self.is_main_builder = mpu.get_data_parallel_rank() == 0
         self.num_total_builders = mpu.get_data_parallel_world_size()
 
