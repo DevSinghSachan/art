@@ -141,10 +141,10 @@ class OpenRetrievalEvaluator(object):
         if local_rank != 0:
             distance = torch.empty(len(all_query_tensor),
                                    args.report_topk_accuracies[-1],
-                                   dtype=torch.float32).cuda()
+                                   dtype=torch.float16).cuda()
             topkindex = torch.empty(len(all_query_tensor),
                                     args.report_topk_accuracies[-1],
-                                    dtype=torch.int64).cuda()
+                                    dtype=torch.int32).cuda()
 
         torch.distributed.broadcast(distance, src=device_start_rank, group=group)
         torch.distributed.broadcast(topkindex, src=device_start_rank, group=group)
