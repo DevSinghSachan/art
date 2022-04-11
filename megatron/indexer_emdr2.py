@@ -24,6 +24,10 @@ class CustomDataLoader(DataLoader):
         super().__init__(dataset, **kwargs)
 
     def _collate_fn(self, batch_data):
+        batch_size = len(batch_data)
+        if batch_size == 0:
+            raise StopIteration
+
         tensorized = OrderedDict()
         for d in batch_data:
             for k, v in d.items():
