@@ -56,11 +56,11 @@ def get_open_retrieval_wiki_dataset():
 
 def get_open_retrieval_batch(data_iterator):
     data = next(data_iterator)
-    row_id = data['row_id']
-    context = data['context']
-    context_mask = data['context_mask']
-    context_types = data['context_types']
-    context_pad_mask = data['context_pad_mask']
+    row_id = data['row_id'].cuda()
+    context = data['context'].cuda()
+    context_mask = data['context_mask'].cuda()
+    context_types = data['context_types'].cuda()
+    context_pad_mask = data['context_pad_mask'].cuda()
 
     return row_id, context, context_mask, context_types, context_pad_mask
 

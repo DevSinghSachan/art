@@ -40,9 +40,9 @@ class CustomDataLoader(DataLoader):
                                                  return_tensors='pt')
         assert input_encoding.input_ids.size(1) <= 512
 
-        tensorized['context'] = input_encoding.input_ids.cuda()
-        tensorized['context_pad_mask'] = input_encoding.attention_mask.cuda()
-        tensorized['context_types'] = torch.cuda.LongTensor(input_encoding.input_ids.size()).fill_(0)
+        tensorized['context'] = input_encoding.input_ids
+        tensorized['context_pad_mask'] = input_encoding.attention_mask
+        tensorized['context_types'] = torch.LongTensor(input_encoding.input_ids.size()).fill_(0)
 
         mask = (tensorized['context'][:, None, :] >= 1) * (tensorized['context'][:, :, None] >= 1)
         # Inverting the mask
