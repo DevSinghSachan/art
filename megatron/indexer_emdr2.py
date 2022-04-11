@@ -46,7 +46,7 @@ class CustomDataLoader(DataLoader):
 
         mask = (tensorized['context'][:, None, :] >= 1) * (tensorized['context'][:, :, None] >= 1)
         # Inverting the mask
-        tensorized['context_pad_mask'] = ~mask
+        tensorized['context_mask'] = ~mask
 
         return tensorized
 
