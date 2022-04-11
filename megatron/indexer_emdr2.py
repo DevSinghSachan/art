@@ -4,11 +4,51 @@ from megatron import get_args
 from megatron import mpu
 from megatron.checkpointing import load_dualencoder_checkpoint
 from megatron.data.samplers import DistributedBatchSampler
-from megatron.data.orqa_wiki_dataset import get_open_retrieval_wiki_dataset, get_open_retrieval_batch
+# from megatron.data.orqa_wiki_dataset import get_open_retrieval_wiki_dataset, get_open_retrieval_batch
 from megatron.data.emdr2_index import detach, OpenRetreivalDataStore
 from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.training import get_model
 from megatron.mpu.initialize import get_data_parallel_group
+from torch.utils.data import DataLoader
+from transformers import BertTokenizer
+from collections import OrderedDict
+from megatron.data.orqa_wiki_dataset_pretokenized import get_open_retrieval_wiki_dataset, get_open_retrieval_batch
+
+
+class CustomDataLoader(DataLoader):
+    def __init__(self, dataset, eval=False, **kwargs):
+        if kwargs.get('collate_fn', None) is None:
+            kwargs['collate_fn'] = self._collate_fn
+        self.eval = eval
+        self.bert_tokenizer = BertTokenizer.from_pretrained("bert-large-uncased")
+        super().__init__(dataset, **kwargs)
+
+    def _collate_fn(self, batch_data):
+        tensorized = OrderedDict()
+        for d in batch_data:
+            for k, v in d.items():
+                tensorized.setdefault(k, []).append(v)
+        assert len(tensorized) == 2
+
+        tensorized['row_id'] = torch.LongTensor(tensorized['row_id'])
+
+        input_encoding = self.bert_tokenizer.pad({'input_ids': tensorized['title_text_ids']},
+                                                 padding='longest',
+                                                 max_length=512,
+                                                 pad_to_multiple_of=8,
+                                                 return_attention_mask=True,
+                                                 return_tensors='pt')
+        assert input_encoding.input_ids.size(1) <= 512
+
+        tensorized['context'] = input_encoding.input_ids.cuda()
+        tensorized['context_pad_mask'] = input_encoding.attention_mask.cuda()
+        tensorized['context_types'] = torch.cuda.LongTensor(input_encoding.input_ids.size()).fill_(0)
+
+        mask = (tensorized['context'][:, None, :] >= 1) * (tensorized['context'][:, :, None] >= 1)
+        # Inverting the mask
+        tensorized['context_pad_mask'] = ~mask
+
+        return tensorized
 
 
 
@@ -29,10 +69,15 @@ def get_one_epoch_dataloader(dataset, batch_size=None):
                                             rank=rank,
                                             world_size=world_size)
 
-    return torch.utils.data.DataLoader(dataset,
-                                       batch_sampler=batch_sampler,
-                                       num_workers=num_workers,
-                                       pin_memory=True)
+    # return torch.utils.data.DataLoader(dataset,
+    #                                    batch_sampler=batch_sampler,
+    #                                    num_workers=num_workers,
+    #                                    pin_memory=True)
+
+    return CustomDataLoader(dataset,
+                            batch_sampler=batch_sampler,
+                            num_workers=num_workers,
+                            pin_memory=True)
 
 
 class IndexBuilder(object):
