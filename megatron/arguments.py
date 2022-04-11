@@ -544,7 +544,7 @@ def _add_emdr2_args(parser):
                        help='Report progress while reading input file.')
 
     # training
-    group.add_argument('--report-topk-accuracies', nargs='+', type=int, default=[],
+    group.add_argument('--report-topk-accuracies', nargs='+', type=int, default=[1, 5, 20, 50, 100],
                        help="Which top-k accuracies to report (e.g. '1 5 20')")
 
     group.add_argument('--retriever-score-scaling', action='store_true',

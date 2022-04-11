@@ -130,7 +130,7 @@ class OpenRetrievalEvaluator(object):
             for i in range(0, len(all_query_tensor), args.topk_retrievals):
                 query_tensor_view = all_query_tensor[i: i + args.topk_retrievals]
                 distance, topkindex = self.mips_index.search_mips_index(query_tensor_view,
-                                                                        top_k=100,
+                                                                        top_k=args.report_topk_accuracies[-1],
                                                                         reconstruct=False)
                 all_distance.append(distance)
                 all_topkindex.append(topkindex)
@@ -139,8 +139,12 @@ class OpenRetrievalEvaluator(object):
             topkindex = torch.cat(all_topkindex, dim=0)
 
         if local_rank != 0:
-            distance = torch.empty(len(all_query_tensor), args.topk_retrievals, dtype=torch.float32).cuda()
-            topkindex = torch.empty(len(all_query_tensor), args.topk_retrievals, dtype=torch.int64).cuda()
+            distance = torch.empty(len(all_query_tensor),
+                                   args.report_topk_accuracies[-1],
+                                   dtype=torch.float32).cuda()
+            topkindex = torch.empty(len(all_query_tensor),
+                                    args.report_topk_accuracies[-1],
+                                    dtype=torch.int64).cuda()
 
         torch.distributed.broadcast(distance, src=device_start_rank, group=group)
         torch.distributed.broadcast(topkindex, src=device_start_rank, group=group)
