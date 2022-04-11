@@ -398,7 +398,8 @@ def _train(model, optimizer, lr_scheduler, forward_step,
                 print_rank_0("Training Group: MIPS Index Updated")
 
                 # Get the retrieval score
-                get_retrieval_score()
+                # get_retrieval_score()
+
                 last_reload_iteration = iteration
 
             # Train for one step.

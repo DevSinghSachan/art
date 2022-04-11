@@ -41,19 +41,6 @@ def get_open_retrieval_wiki_dataset():
     return dataset
 
 
-# def get_open_retrieval_batch(data_iterator):
-#     data = next(data_iterator)
-#     row_id = data['row_id'].long().cuda()
-#     context = data['context'].long().cuda()
-#
-#     # TODO: make the context mask a binary one
-#     context_mask = (data['context_mask'] < 0.5).cuda()
-#     context_types = data['context_types'].long().cuda()
-#     context_pad_mask = data['context_pad_mask'].long().cuda()
-#
-#     return row_id, context, context_mask, context_types, context_pad_mask
-
-
 def get_open_retrieval_batch(data_iterator):
     data = next(data_iterator)
     row_id = data['row_id'].cuda()
@@ -65,21 +52,21 @@ def get_open_retrieval_batch(data_iterator):
     return row_id, context, context_mask, context_types, context_pad_mask
 
 
-def build_tokens_types_paddings_from_text(row, tokenizer, max_seq_length):
-    """Build token types and paddings, trim if needed, and pad if needed."""
-
-    title_ids = tokenizer.tokenize(row['title'])
-    context_ids = tokenizer.tokenize(row['text'])
-
-    # Appending the title of the context at front
-    extended_context_ids = title_ids + [tokenizer.sep_id] + context_ids
-
-    context_ids, context_types, context_pad_mask = build_tokens_types_paddings_from_ids(extended_context_ids,
-                                                                                        max_seq_length,
-                                                                                        tokenizer.cls,
-                                                                                        tokenizer.sep,
-                                                                                        tokenizer.pad)
-    return context_ids, context_types, context_pad_mask
+# def build_tokens_types_paddings_from_text(row, tokenizer, max_seq_length):
+#     """Build token types and paddings, trim if needed, and pad if needed."""
+#
+#     title_ids = tokenizer.tokenize(row['title'])
+#     context_ids = tokenizer.tokenize(row['text'])
+#
+#     # Appending the title of the context at front
+#     extended_context_ids = title_ids + [tokenizer.sep_id] + context_ids
+#
+#     context_ids, context_types, context_pad_mask = build_tokens_types_paddings_from_ids(extended_context_ids,
+#                                                                                         max_seq_length,
+#                                                                                         tokenizer.cls,
+#                                                                                         tokenizer.sep,
+#                                                                                         tokenizer.pad)
+#     return context_ids, context_types, context_pad_mask
 
 
 # noinspection DuplicatedCode
@@ -118,23 +105,6 @@ def build_tokens_types_paddings_from_ids(text_ids, max_seq_length,
     pad_mask = np.array(pad_mask, dtype=np.int64)
 
     return enc_ids, tokentypes_enc, pad_mask
-
-
-# def build_sample(row_id, context_ids, context_types, context_pad_mask):
-#     """Convert to numpy and return a sample consumed by the batch producer."""
-#
-#     context_ids = np.array(context_ids, dtype=np.int64)
-#     context_types = np.array(context_types, dtype=np.int64)
-#     context_mask = make_attention_mask(context_ids, context_ids)
-#
-#     sample = ({
-#         'row_id': row_id,
-#         'context': context_ids,
-#         'context_mask': context_mask,
-#         'context_types': context_types,
-#         'context_pad_mask': context_pad_mask
-#     })
-#     return sample
 
 
 class OpenRetrievalEvidenceDataset(ABC, Dataset):
