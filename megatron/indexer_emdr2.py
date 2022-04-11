@@ -34,11 +34,11 @@ class CustomDataLoader(DataLoader):
 
         input_encoding = self.bert_tokenizer.pad({'input_ids': tensorized['title_text_ids']},
                                                  padding='longest',
-                                                 max_length=512,
+                                                 max_length=256,
                                                  pad_to_multiple_of=8,
                                                  return_attention_mask=True,
                                                  return_tensors='pt')
-        assert input_encoding.input_ids.size(1) <= 512
+        assert input_encoding.input_ids.size(1) <= 256
 
         tensorized['context'] = input_encoding.input_ids
         tensorized['context_pad_mask'] = input_encoding.attention_mask

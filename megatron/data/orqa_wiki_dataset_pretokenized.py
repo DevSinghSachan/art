@@ -172,8 +172,8 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
         title_text_ids = [self.tokenizer.cls] + title_ids + [self.tokenizer.sep] + text_ids
         to_be_added_len = 1
-        if len(title_text_ids) + to_be_added_len >= 512:
-            truncate_len = len(title_text_ids) + to_be_added_len - 512
+        if len(title_text_ids) + to_be_added_len >= 256:
+            truncate_len = len(title_text_ids) + to_be_added_len - 256
             title_text_ids = title_text_ids[: -truncate_len]
 
         title_text_ids.extend([self.tokenizer.sep])
