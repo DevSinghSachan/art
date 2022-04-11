@@ -323,10 +323,11 @@ def _build_train_valid_dataloaders(train_dataset, valid_dataset):
     return train_dataloader, valid_dataloader
 
 
-def get_retrieval_score():
+def get_retrieval_score(mips_index=None):
     args = get_args()
     evaluator = OpenRetrievalEvaluator(custom_load_path=args.load,
-                                       key_list=['retriever/biencoder_model'])
+                                       key_list=['retriever/biencoder_model'],
+                                       mips_index=mips_index)
     if args.qa_file_dev is not None:
         evaluator.evaluate(args.qa_file_dev, "DEV")
         torch.distributed.barrier()
@@ -389,7 +390,8 @@ def _train(model, optimizer, lr_scheduler, forward_step,
             if args.compute_fresh_evidence_embeddings and iteration >= last_reload_iteration + args.index_reload_interval:
                 # Recompute evidence embeddings
                 call_evidence_index_builder()
-                print_rank_0("Updating MIPS Index")
+
+                print_rank_0("Training Group: Updating MIPS Index")
                 # get model without FP16 and/or TorchDDP wrappers
                 unwrapped_model = model
                 while hasattr(unwrapped_model, 'module'):
@@ -398,7 +400,7 @@ def _train(model, optimizer, lr_scheduler, forward_step,
                 print_rank_0("Training Group: MIPS Index Updated")
 
                 # Get the retrieval score
-                # get_retrieval_score()
+                get_retrieval_score(unwrapped_model.evidence_retriever.mips_index)
 
                 last_reload_iteration = iteration
 

@@ -1,31 +1,10 @@
-# coding=utf-8
-# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """Wikipedia dataset from DPR code for ORQA."""
 
 import csv
-import random
-import time
 from abc import ABC
-
 import numpy as np
-import torch
 from torch.utils.data import Dataset
-
-from megatron import print_rank_0, get_args, get_tokenizer, mpu
-from megatron.data.mask_creation_utils import make_attention_mask
+from megatron import print_rank_0, get_args, get_tokenizer
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 
 
@@ -48,25 +27,8 @@ def get_open_retrieval_batch(data_iterator):
     context_mask = data['context_mask'].cuda()
     context_types = data['context_types'].cuda()
     context_pad_mask = data['context_pad_mask'].cuda()
-
     return row_id, context, context_mask, context_types, context_pad_mask
 
-
-# def build_tokens_types_paddings_from_text(row, tokenizer, max_seq_length):
-#     """Build token types and paddings, trim if needed, and pad if needed."""
-#
-#     title_ids = tokenizer.tokenize(row['title'])
-#     context_ids = tokenizer.tokenize(row['text'])
-#
-#     # Appending the title of the context at front
-#     extended_context_ids = title_ids + [tokenizer.sep_id] + context_ids
-#
-#     context_ids, context_types, context_pad_mask = build_tokens_types_paddings_from_ids(extended_context_ids,
-#                                                                                         max_seq_length,
-#                                                                                         tokenizer.cls,
-#                                                                                         tokenizer.sep,
-#                                                                                         tokenizer.pad)
-#     return context_ids, context_types, context_pad_mask
 
 
 # noinspection DuplicatedCode

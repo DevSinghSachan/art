@@ -4,7 +4,6 @@ from megatron import get_args
 from megatron import mpu
 from megatron.checkpointing import load_dualencoder_checkpoint
 from megatron.data.samplers import DistributedBatchSampler
-# from megatron.data.orqa_wiki_dataset import get_open_retrieval_wiki_dataset, get_open_retrieval_batch
 from megatron.data.emdr2_index import detach, OpenRetreivalDataStore
 from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.training import get_model
@@ -72,11 +71,6 @@ def get_one_epoch_dataloader(dataset, batch_size=None):
                                             drop_last=False,
                                             rank=rank,
                                             world_size=world_size)
-
-    # return torch.utils.data.DataLoader(dataset,
-    #                                    batch_sampler=batch_sampler,
-    #                                    num_workers=num_workers,
-    #                                    pin_memory=True)
 
     return CustomDataLoader(dataset,
                             batch_sampler=batch_sampler,

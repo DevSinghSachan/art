@@ -14,7 +14,7 @@ from megatron.data.emdr2_index import OpenRetreivalDataStore, FaissMIPSIndex
 
 
 class OpenRetrievalEvaluator(object):
-    def __init__(self, custom_load_path=None, key_list=None):
+    def __init__(self, custom_load_path=None, key_list=None, mips_index=None):
         args = get_args()
         self.embedding_size = args.hidden_size
         self.faiss_use_gpu = args.faiss_use_gpu
@@ -32,7 +32,13 @@ class OpenRetrievalEvaluator(object):
                                                  custom_load_path=custom_load_path,
                                                  key_list=key_list)
         self.model.eval()
-        self.faiss_wrapper()
+        if mips_index is None:
+            self.faiss_wrapper()
+        else:
+            self.mips_index = mips_index
+
+        # Wait for the index to be initialized in all the nodes
+        torch.distributed.barrier()
 
     def get_evidence_embedding(self):
         # This will load the embedding from the embedding path
@@ -51,9 +57,6 @@ class OpenRetrievalEvaluator(object):
             self.mips_index = FaissMIPSIndex(embed_size=self.embedding_size,
                                              embed_data=self.evidence_embedder_obj,
                                              use_gpu=self.faiss_use_gpu)
-
-        # Wait for the FAISS index to be initialized in all the nodes
-        torch.distributed.barrier()
 
     def generate_query_vectors(self, qa_file, split):
         self.eval_dataset = get_qa_dataset(qa_file, split)
@@ -122,11 +125,20 @@ class OpenRetrievalEvaluator(object):
 
         if local_rank == 0 and self.mips_index is not None:
             all_query_tensor = all_query_tensor.contiguous()
-            distance, topkindex = self.mips_index.search_mips_index(all_query_tensor,
-                                                                    top_k=args.topk_retrievals,
-                                                                    reconstruct=False)
-            distance = torch.from_numpy(distance).cuda()
-            topkindex = torch.LongTensor(topkindex).cuda()
+            all_distance, all_topkindex = [], []
+
+            for i in range(0, len(all_query_tensor), args.topk_retrievals):
+                query_tensor_view = all_query_tensor[i: i + args.topk_retrievals]
+                distance, topkindex = self.mips_index.search_mips_index(query_tensor_view,
+                                                                        top_k=100,
+                                                                        reconstruct=False)
+                distance = torch.from_numpy(distance).cuda()
+                all_distance.append(distance)
+                topkindex = torch.LongTensor(topkindex).cuda()
+                all_topkindex.append(topkindex)
+
+            distance = torch.cat(all_distance, dim=0)
+            topkindex = torch.cat(all_topkindex, dim=0)
 
         if local_rank != 0:
             distance = torch.empty(len(all_query_tensor), args.topk_retrievals, dtype=torch.float32).cuda()
