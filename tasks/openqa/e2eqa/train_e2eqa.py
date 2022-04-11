@@ -362,7 +362,6 @@ def _train(model, optimizer, lr_scheduler, forward_step,
 
     # For async updates
     last_reload_iteration = None
-    new_index_recv_handle = None
 
     if args.compute_fresh_evidence_embeddings:
         last_reload_iteration = iteration
@@ -387,6 +386,7 @@ def _train(model, optimizer, lr_scheduler, forward_step,
             # Set to zero so the next epoch does not skip any batches.
             start_iteration = 0
 
+            # Evaluation
             if args.compute_fresh_evidence_embeddings and iteration >= last_reload_iteration + args.index_reload_interval:
                 # Recompute evidence embeddings
                 call_evidence_index_builder()
@@ -421,9 +421,9 @@ def _train(model, optimizer, lr_scheduler, forward_step,
                 save_checkpoint(iteration, model, optimizer, lr_scheduler)
 
             # Evaluation
-            if args.eval_interval and iteration % args.eval_interval == 0:
-                end_of_epoch_callback(model, iteration)
-                end_of_epoch_callback2(model, iteration)
+            # if args.eval_interval and iteration % args.eval_interval == 0:
+            #     end_of_epoch_callback(model, iteration)
+            #     end_of_epoch_callback2(model, iteration)
 
             if args.exit_interval and iteration % args.exit_interval == 0:
                 torch.distributed.barrier(mpu.get_data_parallel_group())
@@ -436,9 +436,9 @@ def _train(model, optimizer, lr_scheduler, forward_step,
             save_checkpoint(iteration, model, optimizer, lr_scheduler)
 
         # Callback at the end of each epoch.
-        if end_of_epoch_callback is not None:
-            end_of_epoch_callback(model, epoch + 1)
-            end_of_epoch_callback2(model, epoch + 1)
+        # if end_of_epoch_callback is not None:
+        #     end_of_epoch_callback(model, epoch + 1)
+        #     end_of_epoch_callback2(model, epoch + 1)
 
 
 def train(train_valid_datasets_provider, model_provider,

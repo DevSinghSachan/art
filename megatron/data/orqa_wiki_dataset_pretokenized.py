@@ -142,7 +142,7 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
                 id2text[doc_id] = (text, title)
 
                 total += 1
-                if total % 100000 == 0:
+                if total % 1000000 == 0:
                     print_rank_0('  > processed {} rows so far ...'.format(total))
 
         print_rank_0(' >> processed {} samples.'.format(len(rows)))

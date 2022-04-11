@@ -132,9 +132,7 @@ class OpenRetrievalEvaluator(object):
                 distance, topkindex = self.mips_index.search_mips_index(query_tensor_view,
                                                                         top_k=100,
                                                                         reconstruct=False)
-                distance = torch.from_numpy(distance).cuda()
                 all_distance.append(distance)
-                topkindex = torch.LongTensor(topkindex).cuda()
                 all_topkindex.append(topkindex)
 
             distance = torch.cat(all_distance, dim=0)
