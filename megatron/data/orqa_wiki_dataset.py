@@ -52,13 +52,13 @@ def get_open_retrieval_batch(data_iterator):
         data = next(data_iterator)
     # data_b = mpu.broadcast_data(keys, data, datatype)
 
-    row_id = data['row_id'].long()
-    context = data['context'].long()
+    row_id = data['row_id'].long().cuda()
+    context = data['context'].long().cuda()
 
     # TODO: make the context mask a binary one
-    context_mask = (data['context_mask'] < 0.5)
-    context_types = data['context_types'].long()
-    context_pad_mask = data['context_pad_mask'].long()
+    context_mask = (data['context_mask'] < 0.5).cuda()
+    context_types = data['context_types'].long().cuda()
+    context_pad_mask = data['context_pad_mask'].long().cuda()
 
     return row_id, context, context_mask, context_types, context_pad_mask
 
