@@ -90,8 +90,10 @@ def set_global_variables(extra_args_provider=None, args_defaults={},
                        ignore_unknown_args=ignore_unknown_args)
     _ = _build_t5_tokenizer(args)
     _ = _build_tokenizer(args)
-    _ = _build_t0_tokenizer(args)
-    _ = _build_t0_model(args)
+
+    if args.initialize_t0_model_and_tokenizer:
+        _ = _build_t0_tokenizer(args)
+        _ = _build_t0_model(args)
     _set_tensorboard_writer(args)
     _set_adlr_autoresume(args)
     _set_timers()

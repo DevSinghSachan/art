@@ -18,13 +18,8 @@ from megatron import get_t5_tokenizer, get_t0_tokenizer
 from megatron.mpu import vocab_parallel_cross_entropy as cross_entropy
 from megatron.model.search_strategy import SampleOrGreedySearch, BeamSearch
 from tasks.openqa.e2eqa.eval_utils import exact_match_score, metric_max_over_ground_truths
-from megatron.mpu.initialize import get_new_index_ready, get_new_chkpt_ready, get_gloo_comm_group
 from megatron.indexer_emdr2 import IndexBuilder
 from tasks.openqa.dense_retriever.evaluation.evaluate import OpenRetrievalEvaluator
-
-
-NEW_INDEX_READY = None
-NEW_CHKPT_READY = None
 
 
 def process_batch(batch):
@@ -368,25 +363,6 @@ def _train(model, optimizer, lr_scheduler, forward_step,
     last_reload_iteration = None
     new_index_recv_handle = None
 
-    # Async Index Update Part
-    # if args.async_indexer:
-    #     global NEW_INDEX_READY
-    #     NEW_INDEX_READY = get_new_index_ready()
-    #
-    #     global NEW_CHKPT_READY
-    #     NEW_CHKPT_READY = get_new_chkpt_ready()
-    #
-    #     # Broad this, so that the indexer group can start indexing
-    #     torch.distributed.broadcast(NEW_CHKPT_READY,
-    #                                 src=0,
-    #                                 group=get_gloo_comm_group())
-    #
-    #     new_index_recv_handle = torch.distributed.broadcast(NEW_INDEX_READY,
-    #                                                         src=args.max_training_rank,
-    #                                                         group=get_gloo_comm_group(),
-    #                                                         async_op=True)
-    #     last_reload_iteration = iteration
-
     if args.compute_fresh_evidence_embeddings:
         last_reload_iteration = iteration
 
@@ -410,40 +386,6 @@ def _train(model, optimizer, lr_scheduler, forward_step,
             # Set to zero so the next epoch does not skip any batches.
             start_iteration = 0
 
-            # if enough iterations have gone by to consider reloading the index during EMDR2 training
-            # if args.async_indexer and iteration >= last_reload_iteration + args.index_reload_interval:
-            #     while True:
-            #         # if index has been completed, so reload and save checkpoint before proceeding
-            #         if new_index_recv_handle.is_completed():
-            #             print_rank_0(">Training Group: Saving model and reloading index")
-            #             save_checkpoint(iteration, model, optimizer, lr_scheduler)
-            #
-            #             # send handle
-            #             torch.distributed.broadcast(NEW_CHKPT_READY,
-            #                                         src=0,
-            #                                         group=get_gloo_comm_group())
-            #
-            #             print_rank_0("Training Group: Updating MIPS Index")
-            #             # get model without FP16 and/or TorchDDP wrappers
-            #             unwrapped_model = model
-            #             while hasattr(unwrapped_model, 'module'):
-            #                 unwrapped_model = unwrapped_model.module
-            #             unwrapped_model.evidence_retriever.update_evidence_embedding()
-            #             print_rank_0("Training Group: MIPS Index Updated")
-            #
-            #             # new recv handle
-            #             new_index_recv_handle = torch.distributed.broadcast(NEW_INDEX_READY,
-            #                                                                 src=args.max_training_rank,
-            #                                                                 group=get_gloo_comm_group(),
-            #                                                                 async_op=True)
-            #             print_rank_0("Training Group: Async wait for NEW_INDEX_READY")
-            #             last_reload_iteration = iteration
-            #             break
-            #
-            #         # wait for indexer to finish first
-            #         else:
-            #             time.sleep(5)
-
             if args.compute_fresh_evidence_embeddings and iteration >= last_reload_iteration + args.index_reload_interval:
                 # Recompute evidence embeddings
                 call_evidence_index_builder()
@@ -457,7 +399,6 @@ def _train(model, optimizer, lr_scheduler, forward_step,
 
                 # Get the retrieval score
                 get_retrieval_score()
-
                 last_reload_iteration = iteration
 
             # Train for one step.
@@ -485,16 +426,7 @@ def _train(model, optimizer, lr_scheduler, forward_step,
                 torch.distributed.barrier(mpu.get_data_parallel_group())
                 rank = torch.distributed.get_rank()
                 print_rank_0('rank: {} | exiting the program at iteration {}'.format(rank, iteration))
-                if args.async_indexer:
-                    while True:
-                        if new_index_recv_handle.is_completed():
-                            print_rank_0(">Training Group: Saving model before exiting")
-                            save_checkpoint(iteration, model, optimizer, lr_scheduler)
-                            sys.exit(0)
-                        else:
-                            time.sleep(5)
-                else:
-                    sys.exit(0)
+                sys.exit(0)
 
         # Checkpointing at the end of each epoch.
         if args.save:

@@ -42,25 +42,23 @@ def get_open_retrieval_wiki_dataset():
 
 def get_open_retrieval_batch(data_iterator):
     # Items and their type.
-    keys = ['row_id', 'context', 'context_mask', 'context_types', 'context_pad_mask']
-    datatype = torch.int64
+    # keys = ['row_id', 'context', 'context_mask', 'context_types', 'context_pad_mask']
+    # datatype = torch.int64
 
     # Broadcast data.
     if data_iterator is None:
         data = None
     else:
         data = next(data_iterator)
-    data_b = mpu.broadcast_data(keys, data, datatype)
+    # data_b = mpu.broadcast_data(keys, data, datatype)
 
-    # Unpack.
-    row_id = data_b['row_id'].long()
-    context = data_b['context'].long()
+    row_id = data['row_id'].long()
+    context = data['context'].long()
 
     # TODO: make the context mask a binary one
-    context_mask = (data_b['context_mask'] < 0.5)
-
-    context_types = data_b['context_types'].long()
-    context_pad_mask = data_b['context_pad_mask'].long()
+    context_mask = (data['context_mask'] < 0.5)
+    context_types = data['context_types'].long()
+    context_pad_mask = data['context_pad_mask'].long()
 
     return row_id, context, context_mask, context_types, context_pad_mask
 
