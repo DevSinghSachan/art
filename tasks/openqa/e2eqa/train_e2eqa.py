@@ -334,6 +334,7 @@ def get_retrieval_score(mips_index=None):
     if args.qa_file_test is not None:
         evaluator.evaluate(args.qa_file_test, "TEST")
         torch.distributed.barrier()
+    del evaluator
 
 
 def call_evidence_index_builder():
@@ -341,6 +342,7 @@ def call_evidence_index_builder():
     index_builder = IndexBuilder(custom_load_path=args.load,
                                  key_list=['retriever/biencoder_model'])
     index_builder.build_and_save_index()
+    del index_builder
 
 
 def _train(model, optimizer, lr_scheduler, forward_step,

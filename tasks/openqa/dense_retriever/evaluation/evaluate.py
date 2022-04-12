@@ -127,8 +127,8 @@ class OpenRetrievalEvaluator(object):
             all_query_tensor = all_query_tensor.contiguous()
             all_distance, all_topkindex = [], []
 
-            for i in range(0, len(all_query_tensor), args.topk_retrievals):
-                query_tensor_view = all_query_tensor[i: i + args.topk_retrievals]
+            for i in range(0, len(all_query_tensor), args.shard_size):
+                query_tensor_view = all_query_tensor[i: i + args.shard_size]
                 distance, topkindex = self.mips_index.search_mips_index(query_tensor_view,
                                                                         top_k=args.report_topk_accuracies[-1],
                                                                         reconstruct=False)
