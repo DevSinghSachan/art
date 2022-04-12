@@ -119,7 +119,9 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
     @staticmethod
     def process_samples_from_single_path(filename):
-        print_rank_0(' > Processing {} ...'.format(filename))
+        args = get_args()
+        if args.local_rank == 0:
+            print(' > Processing {} ...'.format(filename))
         total = 0
         id2text = []
 
@@ -141,8 +143,10 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
                 total += 1
                 if total % 1000000 == 0:
-                    print_rank_0('  > processed {} rows so far ...'.format(total))
+                    if args.local_rank == 0:
+                        print('  > processed {} rows so far ...'.format(total))
 
-        print_rank_0(' >> processed {} samples.'.format(len(id2text)))
+        if args.local_rank == 0:
+            print(' >> processed {} samples.'.format(len(id2text)))
 
         return id2text
