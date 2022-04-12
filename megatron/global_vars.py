@@ -337,6 +337,6 @@ def process_samples_from_single_path(args):
                     print('  > processed {} rows so far ...'.format(total))
 
     if args.local_rank == 0:
-        print(' >> processed {} samples.'.format(len(id2text)))
+        print(' >> processed {} samples.'.format(total))
 
     return id2text

@@ -117,36 +117,36 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
         return sample
 
+    @staticmethod
+    def process_samples_from_single_path(filename):
+        args = get_args()
+        if args.local_rank == 0:
+            print(' > Processing {} ...'.format(filename))
+        total = 0
+        id2text = []
 
-def process_samples_from_single_path(filename):
-    args = get_args()
-    if args.local_rank == 0:
-        print(' > Processing {} ...'.format(filename))
-    total = 0
-    id2text = []
+        with open(filename) as tsvfile:
+            reader = csv.reader(tsvfile, delimiter='\t')
+            next(reader, None)  # skip the headers
 
-    with open(filename) as tsvfile:
-        reader = csv.reader(tsvfile, delimiter='\t')
-        next(reader, None)  # skip the headers
+            # Fill some random text tuple in the first index
+            id2text.append(("text", "title"))
 
-        # Fill some random text tuple in the first index
-        id2text.append(("text", "title"))
+            for row in reader:
+                # file format: doc_id, doc_text, title
+                doc_id = int(row[0])
+                text = row[1]
+                title = row[2]
 
-        for row in reader:
-            # file format: doc_id, doc_text, title
-            doc_id = int(row[0])
-            text = row[1]
-            title = row[2]
+                # doc_id is specified by the index of the list
+                id2text.append((text, title))
 
-            # doc_id is specified by the index of the list
-            id2text.append((text, title))
+                total += 1
+                if total % 1000000 == 0:
+                    if args.local_rank == 0:
+                        print('  > processed {} rows so far ...'.format(total))
 
-            total += 1
-            if total % 1000000 == 0:
-                if args.local_rank == 0:
-                    print('  > processed {} rows so far ...'.format(total))
+        if args.local_rank == 0:
+            print(' >> processed {} samples.'.format(len(id2text)))
 
-    if args.local_rank == 0:
-        print(' >> processed {} samples.'.format(len(id2text)))
-
-    return id2text
+        return id2text

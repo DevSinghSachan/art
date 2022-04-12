@@ -327,6 +327,7 @@ def get_retrieval_score(mips_index=None):
     args = get_args()
     evaluator = OpenRetrievalEvaluator(custom_load_path=args.load,
                                        key_list=['retriever/biencoder_model'],
+                                       load_evidence_dataset=False,
                                        use_faiss=False)
     evidence_id2text = get_wikipedia_evidence()
 

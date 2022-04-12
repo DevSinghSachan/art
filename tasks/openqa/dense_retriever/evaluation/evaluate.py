@@ -128,7 +128,7 @@ class OpenRetrievalEvaluator(object):
         print_rank_0(all_query_tensor.shape)
         num_rows = len(all_query_tensor)
 
-        if local_rank == 0 and self.mips_index is not None:
+        if local_rank == 0 and mips_index_cls is not None:
             all_query_tensor = all_query_tensor.contiguous()
             all_distance, all_topkindex = [], []
 
