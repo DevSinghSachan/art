@@ -18,13 +18,13 @@
 import os
 import sys
 import time
+import csv
 
 import torch
 
 from megatron.tokenizer import build_tokenizer
 from .arguments import parse_args
 from transformers import T5Tokenizer, T5ForConditionalGeneration
-from megatron.data.orqa_wiki_dataset_pretokenized import OpenRetrievalEvidenceDataset
 
 
 _GLOBAL_ARGS = None
@@ -141,7 +141,7 @@ def _load_wikipedia_evidence(args):
     """Load the DPR wikipedia evidence file"""
     global _GLOBAL_WIKIPEDIA_EVIDENCE
     _ensure_var_is_not_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
-    _GLOBAL_WIKIPEDIA_EVIDENCE = OpenRetrievalEvidenceDataset.process_samples_from_single_path(args.evidence_data_path)
+    _GLOBAL_WIKIPEDIA_EVIDENCE = process_samples_from_single_path(args)
     return _GLOBAL_WIKIPEDIA_EVIDENCE
 
 
@@ -306,3 +306,37 @@ class Timers:
                 print(string, flush=True)
         else:
             print(string, flush=True)
+
+
+def process_samples_from_single_path(args):
+
+    if args.local_rank == 0:
+        print(' > Processing {} ...'.format(args.evidence_data_path))
+    total = 0
+    id2text = []
+
+    with open(args.evidence_data_path) as tsvfile:
+        reader = csv.reader(tsvfile, delimiter='\t')
+        next(reader, None)  # skip the headers
+
+        # Fill some random text tuple in the first index
+        id2text.append(("text", "title"))
+
+        for row in reader:
+            # file format: doc_id, doc_text, title
+            doc_id = int(row[0])
+            text = row[1]
+            title = row[2]
+
+            # doc_id is specified by the index of the list
+            id2text.append((text, title))
+
+            total += 1
+            if total % 1000000 == 0:
+                if args.local_rank == 0:
+                    print('  > processed {} rows so far ...'.format(total))
+
+    if args.local_rank == 0:
+        print(' >> processed {} samples.'.format(len(id2text)))
+
+    return id2text
