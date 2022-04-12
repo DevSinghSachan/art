@@ -590,7 +590,7 @@ def _add_emdr2_args(parser):
     group.add_argument('--shard-size', type=int, default=20,
                        help='Shard size of top-K passages to get T0 logits')
 
-    group.add_argument('--initialize-t0-model-and-tokenizer', action='store_true',
+    group.add_argument('--initialize-t0-model-tokenizer-evidence', action='store_true',
                        help='Initialize the T0 model and tokenizer')
 
     group.add_argument('--t0-model-in-bf16', action='store_true',

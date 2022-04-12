@@ -14,7 +14,7 @@ from megatron.training import setup_model_and_optimizer
 from megatron.training import train_step
 from megatron.training import training_log
 from megatron.utils import reduce_losses
-from megatron import get_t5_tokenizer, get_t0_tokenizer
+from megatron import get_t5_tokenizer, get_t0_tokenizer, get_wikipedia_evidence
 from megatron.mpu import vocab_parallel_cross_entropy as cross_entropy
 from megatron.model.search_strategy import SampleOrGreedySearch, BeamSearch
 from tasks.openqa.e2eqa.eval_utils import exact_match_score, metric_max_over_ground_truths
@@ -327,14 +327,25 @@ def get_retrieval_score(mips_index=None):
     args = get_args()
     evaluator = OpenRetrievalEvaluator(custom_load_path=args.load,
                                        key_list=['retriever/biencoder_model'],
-                                       mips_index=mips_index)
+                                       use_faiss=False)
+    evidence_id2text = get_wikipedia_evidence()
+
     if args.qa_file_dev is not None:
-        evaluator.evaluate(args.qa_file_dev, "DEV")
+        evaluator.evaluate(args.qa_file_dev,
+                           "DEV",
+                           mips_index=mips_index,
+                           evidence_id2text=evidence_id2text)
         torch.distributed.barrier()
+
     if args.qa_file_test is not None:
-        evaluator.evaluate(args.qa_file_test, "TEST")
+        evaluator.evaluate(args.qa_file_test,
+                           "TEST",
+                           mips_index=mips_index,
+                           evidence_id2text=evidence_id2text)
         torch.distributed.barrier()
+
     del evaluator
+
 
 
 def call_evidence_index_builder():

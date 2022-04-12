@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 QAMatchStats = collections.namedtuple('QAMatchStats', ['top_k_hits', 'questions_doc_hits'])
 
 
-def calculate_matches(all_docs: Dict[object, Tuple[str, str]], answers: List[List[str]],
+# def calculate_matches(all_docs: Dict[object, Tuple[str, str]], answers: List[List[str]],
+#                       closest_docs: List[Tuple[List[object], List[float]]], workers_num: int,
+#                       match_type: str) -> QAMatchStats:
+def calculate_matches(all_docs: List[Tuple[str, str]], answers: List[List[str]],
                       closest_docs: List[Tuple[List[object], List[float]]], workers_num: int,
                       match_type: str) -> QAMatchStats:
     """

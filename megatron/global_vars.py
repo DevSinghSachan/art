@@ -24,12 +24,15 @@ import torch
 from megatron.tokenizer import build_tokenizer
 from .arguments import parse_args
 from transformers import T5Tokenizer, T5ForConditionalGeneration
+from megatron.data.orqa_wiki_dataset_pretokenized import OpenRetrievalEvidenceDataset
+
 
 _GLOBAL_ARGS = None
 _GLOBAL_TOKENIZER = None
 _GLOBAL_T5_TOKENIZER = None
 _GLOBAL_T0_TOKENIZER = None
 _GLOBAL_T0_MODEL = None
+_GLOBAL_WIKIPEDIA_EVIDENCE = None
 _GLOBAL_TENSORBOARD_WRITER = None
 _GLOBAL_ADLR_AUTORESUME = None
 _GLOBAL_TIMERS = None
@@ -63,6 +66,11 @@ def get_t0_model():
     _ensure_var_is_initialized(_GLOBAL_T0_MODEL, 'T0-model')
     return _GLOBAL_T0_MODEL
 
+def get_wikipedia_evidence():
+    """Return T0 model."""
+    _ensure_var_is_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
+    return _GLOBAL_WIKIPEDIA_EVIDENCE
+
 
 def get_tensorboard_writer():
     """Return tensorboard writer. It can be None so no need
@@ -91,9 +99,11 @@ def set_global_variables(extra_args_provider=None, args_defaults={},
     _ = _build_t5_tokenizer(args)
     _ = _build_tokenizer(args)
 
-    if args.initialize_t0_model_and_tokenizer:
+    if args.initialize_t0_model_tokenizer_evidence:
         _ = _build_t0_tokenizer(args)
         _ = _build_t0_model(args)
+        _ = _load_wikipedia_evidence(args)
+
     _set_tensorboard_writer(args)
     _set_adlr_autoresume(args)
     _set_timers()
@@ -125,6 +135,14 @@ def _build_t5_tokenizer(args):
     # TODO: maybe, later we can think of removing the hardcoded value of 100
     _GLOBAL_T5_TOKENIZER = build_tokenizer(args, vocab_extra_ids=100)
     return _GLOBAL_T5_TOKENIZER
+
+
+def _load_wikipedia_evidence(args):
+    """Load the DPR wikipedia evidence file"""
+    global _GLOBAL_WIKIPEDIA_EVIDENCE
+    _ensure_var_is_not_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
+    _GLOBAL_WIKIPEDIA_EVIDENCE = OpenRetrievalEvidenceDataset.process_samples_from_single_path(args.evidence_data_path)
+    return _GLOBAL_WIKIPEDIA_EVIDENCE
 
 
 def _build_t0_tokenizer(args):

@@ -121,30 +121,28 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
     def process_samples_from_single_path(filename):
         print_rank_0(' > Processing {} ...'.format(filename))
         total = 0
-
-        rows = []
-        id2text = {}
+        id2text = []
 
         with open(filename) as tsvfile:
             reader = csv.reader(tsvfile, delimiter='\t')
             next(reader, None)  # skip the headers
+
+            # Fill some random text tuple in the first index
+            id2text.append(("text", "title"))
+
             for row in reader:
                 # file format: doc_id, doc_text, title
                 doc_id = int(row[0])
                 text = row[1]
                 title = row[2]
 
-                rows.append({'doc_id': doc_id,
-                             'text': text,
-                             'title': title})
-
-                assert doc_id not in id2text
-                id2text[doc_id] = (text, title)
+                # doc_id is specified by the index of the list
+                id2text.append((text, title))
 
                 total += 1
                 if total % 1000000 == 0:
                     print_rank_0('  > processed {} rows so far ...'.format(total))
 
-        print_rank_0(' >> processed {} samples.'.format(len(rows)))
+        print_rank_0(' >> processed {} samples.'.format(len(id2text)))
 
-        return rows, id2text
+        return id2text

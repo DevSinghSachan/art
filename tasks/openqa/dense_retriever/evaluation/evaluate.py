@@ -14,15 +14,16 @@ from megatron.data.emdr2_index import OpenRetreivalDataStore, FaissMIPSIndex
 
 
 class OpenRetrievalEvaluator(object):
-    def __init__(self, custom_load_path=None, key_list=None, mips_index=None):
+    def __init__(self, custom_load_path=None, key_list=None,
+                 load_evidence_dataset=True,
+                 use_faiss=True):
         args = get_args()
-        self.embedding_size = args.hidden_size
-        self.faiss_use_gpu = args.faiss_use_gpu
+        # self.embedding_size = args.hidden_size
+        # self.faiss_use_gpu = args.faiss_use_gpu
         self.evidence_embedder_obj = None
         self.evidence_dataset = None
         self.mips_index = None
-        self.eval_dataset = None
-        self.get_evidence_dataset()
+        # self.eval_dataset = None
 
         # Load query encoder checkpoint
         only_query_model = True
@@ -32,10 +33,11 @@ class OpenRetrievalEvaluator(object):
                                                  custom_load_path=custom_load_path,
                                                  key_list=key_list)
         self.model.eval()
-        if mips_index is None:
+
+        if load_evidence_dataset:
+            self.get_evidence_dataset()
+        if use_faiss:
             self.faiss_wrapper()
-        else:
-            self.mips_index = mips_index
 
         # Wait for the index to be initialized in all the nodes
         torch.distributed.barrier()
@@ -52,16 +54,13 @@ class OpenRetrievalEvaluator(object):
         args = get_args()
         if args.local_rank == 0:
             self.get_evidence_embedding()
-
             assert self.evidence_embedder_obj is not None
-            self.mips_index = FaissMIPSIndex(embed_size=self.embedding_size,
+            self.mips_index = FaissMIPSIndex(embed_size=args.hidden_size,
                                              embed_data=self.evidence_embedder_obj,
-                                             use_gpu=self.faiss_use_gpu)
+                                             use_gpu=args.faiss_use_gpu)
 
-    def generate_query_vectors(self, qa_file, split):
-        self.eval_dataset = get_qa_dataset(qa_file, split)
-        dataloader = iter(get_one_epoch_qa_dataloader(self.eval_dataset))
-
+    def generate_query_vectors(self, eval_dataset):
+        dataloader = iter(get_one_epoch_qa_dataloader(eval_dataset))
         tokenizer = get_tokenizer()
         query_vectors = []
         query_list = []
@@ -98,9 +97,15 @@ class OpenRetrievalEvaluator(object):
         query_tensor = torch.cat(query_vectors, dim=0)
         return query_list, query_tensor, reference_list
 
-    def evaluate(self, qa_file, split):
+    def evaluate(self, qa_file, split, mips_index=None, evidence_id2text=None):
         args = get_args()
-        query_list, query_tensor, reference_list = self.generate_query_vectors(qa_file, split)
+        eval_dataset = get_qa_dataset(qa_file, split)
+        query_list, query_tensor, reference_list = self.generate_query_vectors(eval_dataset)
+
+        if mips_index is not None:
+            mips_index_cls = mips_index
+        else:
+            mips_index_cls = self.mips_index
 
         local_rank = args.local_rank
         rank = torch.distributed.get_rank()
@@ -129,9 +134,10 @@ class OpenRetrievalEvaluator(object):
 
             for i in range(0, len(all_query_tensor), args.shard_size):
                 query_tensor_view = all_query_tensor[i: i + args.shard_size]
-                distance, topkindex = self.mips_index.search_mips_index(query_tensor_view,
-                                                                        top_k=args.report_topk_accuracies[-1],
-                                                                        reconstruct=False)
+
+                distance, topkindex = mips_index_cls.search_mips_index(query_tensor_view,
+                                                                       top_k=args.report_topk_accuracies[-1],
+                                                                       reconstruct=False)
                 all_distance.append(distance)
                 all_topkindex.append(topkindex)
 
@@ -160,7 +166,12 @@ class OpenRetrievalEvaluator(object):
         for darray, topkarray in zip(topk_sim_scores, topkindex):
             top_ids_and_scores.append((topkarray.tolist(), darray.tolist()))
 
-        passages = self.evidence_dataset.id2text
+        if self.evidence_dataset is None:
+            assert evidence_id2text is not None
+            passages = evidence_id2text
+        else:
+            passages = self.evidence_dataset.id2text
+
         match_stats = calculate_matches(passages,
                                         reference_list,
                                         top_ids_and_scores,
@@ -204,7 +215,7 @@ class OpenRetrievalEvaluator(object):
                 file_name = os.path.splitext(os.path.basename(qa_file))[0]
                 all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
                 # make sure that every single piece of data was embedded
-                assert len(all_data) == len(self.eval_dataset)
+                assert len(all_data) == len(eval_dataset)
                 del all_data
 
         torch.distributed.barrier()
