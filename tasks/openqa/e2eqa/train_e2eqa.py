@@ -356,7 +356,6 @@ def call_evidence_index_builder():
     index_builder = IndexBuilder(custom_load_path=args.load,
                                  key_list=['retriever/biencoder_model'])
     index_builder.build_and_save_index()
-    del index_builder.model
     del index_builder
     torch.cuda.empty_cache()
 
