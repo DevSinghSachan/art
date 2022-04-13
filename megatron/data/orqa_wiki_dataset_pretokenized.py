@@ -82,10 +82,10 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
                                                              self.dataset_name))
 
         args = get_args()
-        self.passages_map = make_indexed_dataset(args.indexed_evidence_data_path,
+        self.passages_map = make_indexed_dataset(args.indexed_evidence_bert_tokenized_data_path,
                                                  impl=args.data_impl,
                                                  skip_warmup=(not args.mmap_warmup))
-        self.title_map = make_indexed_dataset(args.indexed_title_data_path,
+        self.title_map = make_indexed_dataset(args.indexed_title_bert_tokenized_data_path,
                                               impl=args.data_impl,
                                               skip_warmup=(not args.mmap_warmup))
         # Process the files.

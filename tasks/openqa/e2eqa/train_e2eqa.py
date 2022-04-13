@@ -125,84 +125,6 @@ def _cross_entropy_forward_step(batch, model):
     return net_loss, {'retriever_loss': reduced_loss[0]}
 
 
-def reader_em_score(model, dataloader, topk_retrievals):
-    args = get_args()
-    tokenizer = get_t5_tokenizer()
-    hypothesis_list, reference_list = [], []
-    score_list, quid_list = [], []
-    total = 0
-    overall_score = 0
-
-    model.eval()
-    with torch.no_grad():
-        for batch in dataloader:
-
-            def generate_text():
-                query_uid, query_ids_bert, query_types, query_mask_bert, \
-                query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, reference = process_batch(batch)
-                assert torch.all(query_uid < 0), "query uid can't be positive"
-
-                if args.beam_size == 1:
-                    obj = SampleOrGreedySearch(max_decode_len=args.max_decode_len,
-                                               bos_id=tokenizer.bos_token_id,
-                                               eos_id=tokenizer.eos_token_id,
-                                               sample=False,
-                                               topk_evidence=topk_retrievals)
-                elif args.beam_size > 1:
-                    obj = BeamSearch(max_decode_len=args.max_decode_len,
-                                     bos_id=tokenizer.bos_token_id,
-                                     eos_id=tokenizer.eos_token_id,
-                                     beam_size=args.beam_size,
-                                     topk_evidence=topk_retrievals)
-                else:
-                    raise AssertionError("--beam-size < 1 is not supported for ORQA reader.")
-
-                hypothesis = obj.generate_output(model,
-                                                 query_uid,
-                                                 query_ids_bert,
-                                                 query_types,
-                                                 query_mask_bert,
-                                                 query_ids_t5,
-                                                 query_ids_t5_len)
-                return query_uid, reference, hypothesis
-
-            query_uid, reference, hypothesis = generate_text()
-
-            for quid, ref, hyp in zip(query_uid.tolist(), reference, hypothesis):
-                hyp_text = tokenizer.decode(hyp)
-                score = metric_max_over_ground_truths(exact_match_score, hyp_text, ref)
-                overall_score += score
-                score_list.append(score)
-                quid_list.append(quid)
-                hypothesis_list.append(hyp_text)
-                reference_list.append(ref)
-                total += 1
-    model.train()
-
-    if args.async_indexer:
-        num_trainers = args.max_training_rank
-    else:
-        num_trainers = torch.distributed.get_world_size()
-
-    # Aggregating scores from all train workers
-    score_tensor = torch.FloatTensor(score_list).cuda()
-    tensor_list = [torch.empty_like(score_tensor) for _ in range(num_trainers)]
-    torch.distributed.all_gather(tensor_list, score_tensor, group=mpu.get_data_parallel_group())
-    all_score_tensor = torch.cat(tensor_list, dim=0).contiguous()
-
-    quid_tensor = torch.LongTensor(quid_list).cuda()
-    tensor_list = [torch.empty_like(quid_tensor) for _ in range(num_trainers)]
-    torch.distributed.all_gather(tensor_list, quid_tensor, group=mpu.get_data_parallel_group())
-    all_quid_tensor = torch.cat(tensor_list, dim=0).contiguous()
-
-    score_dict = {}
-    # Storing the quid and scores in a dict, so that duplicates would be overwritten
-    for quid, score in zip(all_quid_tensor.tolist(), all_score_tensor.tolist()):
-        score_dict[quid] = score
-
-    return {'Exact Match Score': sum(score_dict.values())}, len(score_dict)
-
-
 def validation_loss(model, dataloader):
     total = 0
     score = 0
@@ -249,13 +171,6 @@ def accuracy_func_provider(single_dataset_provider, datapath):
 
     def metrics_func(model, epoch):
         print_rank_0('calculating metrics ...')
-        name, dataloader = dataloaders
-        output = reader_em_score(model, dataloader, args.topk_retrievals)
-        stats_dict, total = output
-        format_string = "|total_questions: {}".format(total)
-        for k, v in stats_dict.items():
-            format_string += "|{} = {:.2f}".format(k, (v * 100) / total)
-        print_rank_0("epoch:{}{}".format(epoch, format_string))
 
     return metrics_func
 
@@ -360,8 +275,7 @@ def call_evidence_index_builder():
     torch.cuda.empty_cache()
 
 
-def _train(model, optimizer, lr_scheduler, forward_step,
-           train_dataloader, valid_dataloader, end_of_epoch_callback, end_of_epoch_callback2):
+def _train(model, optimizer, lr_scheduler, forward_step, train_dataloader):
     """Train the model."""
     args = get_args()
     timers = get_timers()
@@ -437,10 +351,6 @@ def _train(model, optimizer, lr_scheduler, forward_step,
                     iteration % args.save_interval == 0:
                 save_checkpoint(iteration, model, optimizer, lr_scheduler)
 
-            # Evaluation
-            # if args.eval_interval and iteration % args.eval_interval == 0:
-            #     end_of_epoch_callback(model, iteration)
-            #     end_of_epoch_callback2(model, iteration)
 
             if args.exit_interval and iteration % args.exit_interval == 0:
                 torch.distributed.barrier(mpu.get_data_parallel_group())
@@ -451,11 +361,6 @@ def _train(model, optimizer, lr_scheduler, forward_step,
         # Checkpointing at the end of each epoch.
         if args.save:
             save_checkpoint(iteration, model, optimizer, lr_scheduler)
-
-        # Callback at the end of each epoch.
-        # if end_of_epoch_callback is not None:
-        #     end_of_epoch_callback(model, epoch + 1)
-        #     end_of_epoch_callback2(model, epoch + 1)
 
 
 def train(train_valid_datasets_provider, model_provider,
@@ -473,15 +378,6 @@ def train(train_valid_datasets_provider, model_provider,
         train_dataloader, valid_dataloader = _build_train_valid_dataloaders(
             train_dataset, valid_dataset)
     timers('train/valid/test dataset/dataloder').stop()
-
-    # Build calback function.
-    timers('callback function').start()
-    end_of_epoch_callback = None
-    end_of_epoch_callback2 = None
-    if args.epochs > 0 and end_of_epoch_callback_provider is not None:
-        end_of_epoch_callback = end_of_epoch_callback_provider(args.valid_data)
-        end_of_epoch_callback2 = end_of_epoch_callback_provider(args.test_data)
-    timers('callback function').stop()
 
     # Build model, optimizer and learning rate scheduler.
     timers('model and optimizer').start()
@@ -510,37 +406,11 @@ def train(train_valid_datasets_provider, model_provider,
     print_rank_0('training ...')
 
     # Finetune the model.
-    if args.epochs > 0 and args.emdr2_training:
+    if args.epochs > 0 and args.upr_distillation_training:
         _train(model,
                optimizer,
                lr_scheduler,
                forward_step,
-               train_dataloader,
-               valid_dataloader,
-               end_of_epoch_callback,
-               end_of_epoch_callback2)
-
-    # Evaluate after the training step on validation data
-    end_of_training_validation_callback = None
-    if end_of_training_callback_provider is not None:
-        end_of_training_validation_callback = end_of_training_callback_provider(args.valid_data)
-
-    if end_of_training_validation_callback is not None:
-        print_rank_0('evaluating on validation data, setting epoch to -1')
-        torch.distributed.barrier(mpu.get_data_parallel_group())
-        end_of_training_validation_callback(model, epoch=-1)
-        torch.distributed.barrier(mpu.get_data_parallel_group())
-
-    # Evaluate after the training step on test data
-    if args.test_data is not None:
-        end_of_training_test_callback = None
-        if end_of_training_callback_provider is not None:
-            end_of_training_test_callback = end_of_training_callback_provider(args.test_data)
-
-        if end_of_training_test_callback is not None:
-            print_rank_0('evaluating on test data, setting epoch to -1')
-            torch.distributed.barrier(mpu.get_data_parallel_group())
-            end_of_training_test_callback(model, epoch=-1)
-            torch.distributed.barrier(mpu.get_data_parallel_group())
+               train_dataloader)
 
     print_rank_0('done :-)')

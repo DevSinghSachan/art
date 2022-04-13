@@ -92,9 +92,9 @@ def parse_args(extra_args_provider=None, defaults={},
     for req_arg in required_args: 
         _check_arg_is_not_none(args, req_arg)
 
-    # EMDR2-specific arguments
-    if args.emdr2_training:
-        for req_arg in ['stale_checkpoint_path', 'pretrained_dpr_load']:
+    # UPR Distillation-specific arguments
+    if args.upr_distillation_training:
+        for req_arg in ['pretrained_dpr_load']:
             _check_arg_is_not_none(args, req_arg)
 
     # Checks.
@@ -505,38 +505,29 @@ def _add_emdr2_args(parser):
     group = parser.add_argument_group(title='EMDR2')
 
     # checkpointing
-    group.add_argument('--ict-load', type=str, default=None,
-                       help='Directory containing an ICTBertModel checkpoint')
-
     group.add_argument('--bert-load', type=str, default=None,
                        help='Directory containing an BertModel checkpoint (needed to start models such as DPR)')
 
-    group.add_argument('--stale-checkpoint-path', type=str, default=None,
-                       help='Directory to store / load from containing a stale checkpoint of DPR model')
-
     group.add_argument('--pretrained-dpr-load', type=str, default=None,
-                       help='Directory containing a pre-trained DPR checkpoint (needed to start REALM)')
-
-    group.add_argument('--pretrained-t5-load', type=str, default=None,
-                       help='Directory containing a pre-trained T5 checkpoint (needed to start REALM)')
+                       help='Directory containing a pre-trained DPR checkpoint (needed to start training)')
 
     # data
     group.add_argument('--evidence-data-path', type=str, default=None,
                        help='Path to Wikipedia Evidence from DPR paper')
 
-    group.add_argument('--indexed-evidence-data-path', type=str,
+    group.add_argument('--indexed-evidence-bert-tokenized-data-path', type=str,
                        default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/wikipedia-evidence_text_document",
                        help='Path to pre-tokenized and indexed Wikipedia evidence from DPR paper')
 
-    group.add_argument('--indexed-title-data-path', type=str,
+    group.add_argument('--indexed-title-bert-tokenized-data-path', type=str,
                        default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/wikipedia-evidence_title_document",
                        help='Path to pre-tokenized and indexed evidence title from DPR paper')
 
-    group.add_argument('--indexed-evidence-data-path-t0', type=str,
+    group.add_argument('--indexed-evidence-t0-tokenized-data-path', type=str,
                        default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/t0/wikipedia-evidence-t0_text_document",
                        help='Path to pre-tokenized T0 and indexed Wikipedia evidence from DPR paper')
 
-    group.add_argument('--indexed-title-data-path-t0', type=str,
+    group.add_argument('--indexed-title-t0-tokenized-data-path', type=str,
                        default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/t0/wikipedia-evidence-t0_title_document",
                        help='Path to pre-tokenized T0 and indexed evidence title from DPR paper')
 
@@ -550,8 +541,8 @@ def _add_emdr2_args(parser):
     group.add_argument('--retriever-score-scaling', action='store_true',
                        help="Whether to scale retriever scores by inverse square root of hidden size")
 
-    group.add_argument('--emdr2-training', action='store_true',
-                       help="Whether training EMDR2 model i.e. DPR + T5 combined")
+    group.add_argument('--upr-distillation-training', action='store_true',
+                       help="Whether performing UPR distillation")
 
     group.add_argument('--no-context-embedder-training', action='store_true',
                        help="Whether to train the context embedder of DPR retriever or not")
@@ -573,9 +564,6 @@ def _add_emdr2_args(parser):
 
     group.add_argument('--update-retriever', action='store_true',
                        help='Whether to update retriever weights using joint training')
-
-    group.add_argument('--ret-kldiv', action='store_true',
-                       help='Whether to update retriever weights using KL-divergence with joint training')
 
     # T0 model arguments
     group.add_argument('--hf-model-name', type=str, default="bigscience/T0_3B",

@@ -192,7 +192,7 @@ class UPRModel(MegatronModule):
         """Initialize the state from pre-trained DPR model and pre-trained T5 mode on iteration zero of pretraining"""
         args = get_args()
 
-        if args.pretrained_dpr_load is None or args.stale_checkpoint_path is None:
+        if args.pretrained_dpr_load is None:
             warnings.warn("Pretrained Checkpoints are not found. Initializing from random weights")
             return
 
@@ -299,19 +299,19 @@ class PreComputedEvidenceDocsRetriever(object):
             # Note: This will work only for 1 node. May need to fix this?
             self.device_count = min(torch.cuda.device_count(), args.max_training_rank)
 
-        self.passages_map = make_indexed_dataset(args.indexed_evidence_data_path,
+        self.passages_map = make_indexed_dataset(args.indexed_evidence_bert_tokenized_data_path,
                                                  impl=args.data_impl,
                                                  skip_warmup=(not args.mmap_warmup))
 
-        self.title_map = make_indexed_dataset(args.indexed_title_data_path,
+        self.title_map = make_indexed_dataset(args.indexed_title_bert_tokenized_data_path,
                                               impl=args.data_impl,
                                               skip_warmup=(not args.mmap_warmup))
 
-        self.passages_map_t0 = make_indexed_dataset(args.indexed_evidence_data_path_t0,
+        self.passages_map_t0 = make_indexed_dataset(args.indexed_evidence_t0_tokenized_data_path,
                                                     impl=args.data_impl,
                                                     skip_warmup=(not args.mmap_warmup))
 
-        self.title_map_t0 = make_indexed_dataset(args.indexed_title_data_path_t0,
+        self.title_map_t0 = make_indexed_dataset(args.indexed_title_t0_tokenized_data_path,
                                                  impl=args.data_impl,
                                                  skip_warmup=(not args.mmap_warmup))
 

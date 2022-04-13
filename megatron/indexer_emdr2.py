@@ -87,9 +87,6 @@ class IndexBuilder(object):
         self.evidence_embedder_obj = None
         self.dataset = get_open_retrieval_wiki_dataset()
 
-        # need to know whether we're using a EMDR2 checkpoint (args.load) or ICT checkpoint
-        assert not (args.load and args.ict_load)
-
         self.log_interval = args.indexer_log_interval
         self.batch_size = args.indexer_batch_size
 
