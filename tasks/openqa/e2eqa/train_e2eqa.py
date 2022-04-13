@@ -401,8 +401,9 @@ def train(train_valid_datasets_provider, model_provider,
 
     # Print setup timing.
     print_rank_0('done with setups ...')
-    timers.log(['train/valid/test dataset/dataloder', 'callback function',
-                'model and optimizer', 'pretrained checkpoint'])
+    timers.log(['train/valid/test dataset/dataloder',
+                'model and optimizer',
+                'pretrained checkpoint'])
     print_rank_0('training ...')
 
     # Finetune the model.
