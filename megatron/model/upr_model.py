@@ -130,7 +130,7 @@ class UPRModel(MegatronModule):
         topk_sim_scores = torch.bmm(query_logits, all_context_logits.transpose(1, 2))
 
         if args.retriever_score_scaling:
-            topk_sim_scores = topk_sim_scores / math.sqrt(args.hidden_size)
+            topk_sim_scores = topk_sim_scores / (args.inverse_temperature_multiplier * math.sqrt(args.hidden_size))
 
         # [B, 1, K]
         topk_log_probs = F.log_softmax(topk_sim_scores, dim=2)

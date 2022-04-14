@@ -541,6 +541,9 @@ def _add_emdr2_args(parser):
     group.add_argument('--retriever-score-scaling', action='store_true',
                        help="Whether to scale retriever scores by inverse square root of hidden size")
 
+    group.add_argument('--inverse-temperature-multiplier', type=float, default=1.0,
+                       help="Inverse temperature multiplier for retriever score scaling")
+
     group.add_argument('--upr-distillation-training', action='store_true',
                        help="Whether performing UPR distillation")
 
