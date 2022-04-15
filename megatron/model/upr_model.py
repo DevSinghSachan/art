@@ -109,12 +109,12 @@ class UPRModel(MegatronModule):
         # reshape the all_context_tokens, all_context_mask, and seq lengths
         # all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
 
-        input_encoding = self.bert_tokenizer.pad({'input_ids': all_title_context_ids_bert_tokenized},
-                                                 padding='longest',
-                                                 max_length=512,
-                                                 pad_to_multiple_of=8,
-                                                 return_attention_mask=True,
-                                                 return_tensors='pt')
+        input_encoding = self.hf_bert_tokenizer.pad({'input_ids': all_title_context_ids_bert_tokenized},
+                                                    padding='longest',
+                                                    max_length=512,
+                                                    pad_to_multiple_of=8,
+                                                    return_attention_mask=True,
+                                                    return_tensors='pt')
         assert input_encoding.input_ids.size(1) <= 512
 
         all_title_context_ids = input_encoding.input_ids.cuda()
