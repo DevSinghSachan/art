@@ -1,6 +1,5 @@
 import warnings
 import math
-import numpy as np
 import torch
 import torch.nn.functional as F
 from megatron import get_args, print_rank_0
@@ -8,7 +7,7 @@ from megatron.checkpointing import load_dualencoder_checkpoint
 from megatron.module import MegatronModule
 from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.mpu import get_mips_group, get_node_first_rank
-from megatron import get_tokenizer, get_t5_tokenizer
+from megatron import get_tokenizer
 from megatron.tokenizer.tokenizer import vocab_size_with_padding
 from megatron.data.mask_creation_utils import make_attention_mask_3d
 from megatron.data.emdr2_index import OpenRetreivalDataStore, DistributedBruteForceIndex
@@ -16,6 +15,7 @@ from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
 from megatron.data.orqa_wiki_dataset import build_tokens_types_paddings_from_ids as context_bert_format
 from megatron.mpu.initialize import get_data_parallel_group
 from megatron import get_t0_model, get_t0_tokenizer
+from transformers import BertTokenizer as HFBertTokenizer
 
 
 def flatten(ids, types):
@@ -46,7 +46,7 @@ class UPRModel(MegatronModule):
 
         # We have two tokenizers: (1) for BERT as the retriever models are trained using BERT.
         # and (2) for T0 as the language model uses T0 tokenization.
-        self.bert_tokenizer = get_tokenizer()
+        self.hf_bert_tokenizer = HFBertTokenizer.from_pretrained("bert-large-uncased")
         self.t0_tokenizer = get_t0_tokenizer()
 
     def retriever_embedder(self, tokens, mask, types, embedder_type, disable_dropout=False):
@@ -104,15 +104,27 @@ class UPRModel(MegatronModule):
                                  prefixed_query_ids_t0,
                                  prefixed_query_ids_t0_len,
                                  topk_evidence_data)
-            all_context_ids, all_context_types, all_title_context_ids = output
+            all_title_context_ids_bert_tokenized, all_title_context_ids_for_t0 = output
 
         # reshape the all_context_tokens, all_context_mask, and seq lengths
-        all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
-        all_context_mask = make_attention_mask_3d(all_context_ids, all_context_ids)
-        all_context_mask = all_context_mask < 0.5
+        # all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
+
+        input_encoding = self.bert_tokenizer.pad({'input_ids': all_title_context_ids_bert_tokenized},
+                                                 padding='longest',
+                                                 max_length=512,
+                                                 pad_to_multiple_of=8,
+                                                 return_attention_mask=True,
+                                                 return_tensors='pt')
+        assert input_encoding.input_ids.size(1) <= 512
+
+        all_title_context_ids = input_encoding.input_ids.cuda()
+        all_context_types = torch.cuda.LongTensor(input_encoding.input_ids.size()).fill_(0)
+        all_context_mask = (all_title_context_ids[:, None, :] >= 1) * (all_title_context_ids[:, :, None] >= 1)
+        # Inverting the mask
+        all_context_mask = ~all_context_mask
 
         # Compute "fresh" context logits
-        all_context_logits = self.retriever_embedder(all_context_ids,
+        all_context_logits = self.retriever_embedder(all_title_context_ids,
                                                      all_context_mask,
                                                      all_context_types,
                                                      embedder_type="context",
@@ -143,7 +155,7 @@ class UPRModel(MegatronModule):
 
         for i in range(0, bsize*topk, args.shard_size):
 
-            all_title_context_ids_view = all_title_context_ids[i: i + args.shard_size]
+            all_title_context_ids_view = all_title_context_ids_for_t0[i: i + args.shard_size]
             # pad the sequences
             input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids_view},
                                                    padding='longest',
@@ -204,37 +216,36 @@ class UPRModel(MegatronModule):
 def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, topk_evidence_data):
     args = get_args()
     query_uid = query_uid.tolist()
-    t5_tokenizer = get_t5_tokenizer()
+    bert_tokenizer = get_tokenizer()
     t0_tokenizer = get_t0_tokenizer()
 
     verbalizer_head_ids = t0_tokenizer.encode(args.verbalizer_head,
                                               add_special_tokens=False)
     verbalizer_ids = t0_tokenizer.encode(args.verbalizer,
                                          add_special_tokens=False)
-
-    all_context_ids, all_context_types = [], []
-    all_title_context_ids = []
+    all_title_context_ids_bert_tokenized = []
+    all_title_context_ids_t0_tokenized = []
+    MAX_SEQUENCE_LEN = 512
 
     for qid, prefixed_query_t0_ids, prefixed_query_t0_len, (topkids, text_list, text_list_t0) in zip(query_uid,
                                                                                                      prefixed_query_ids_t0,
                                                                                                      prefixed_query_ids_t0_len,
                                                                                                      topk_evidence_data):
         k = 0
-        context_ids_list, context_types_list = [], []
-
         for eid, (context_ids, title_ids), (context_ids_t0, title_ids_t0) in zip(topkids, text_list, text_list_t0):
             t0_context_title_ids = []
             # We should ignore the evidence from which query originates
             if qid != eid and k < args.topk_retrievals:
                 k += 1
-                # Except for the masked tokens from extra-vocab-ids, BERT tokenizer and T5 tokenizer output the same encodings
-                ids, types, pad_mask = context_bert_format(title_ids + [t5_tokenizer.sep] + context_ids,
-                                                           args.seq_length_ret,
-                                                           t5_tokenizer.cls,
-                                                           t5_tokenizer.sep,
-                                                           t5_tokenizer.pad)
-                context_ids_list.append(ids)
-                context_types_list.append(types)
+
+                bert_title_text_ids = [bert_tokenizer.cls] + title_ids + [bert_tokenizer.sep] + context_ids
+                to_be_added_len = 1
+                if len(bert_title_text_ids) + to_be_added_len >= MAX_SEQUENCE_LEN:
+                    truncate_len = len(bert_title_text_ids) + to_be_added_len - MAX_SEQUENCE_LEN
+                    bert_title_text_ids = bert_title_text_ids[: -truncate_len]
+                bert_title_text_ids.extend([bert_tokenizer.sep])
+
+                all_title_context_ids_bert_tokenized.append(bert_title_text_ids)
 
                 # Original Input Style: Passage: <title> <passage> . Can you please write a question?
                 t0_context_title_ids.extend(verbalizer_head_ids)
@@ -243,21 +254,16 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
 
                 # Truncating the sequence length if larger than 512
                 to_be_added_len = len(verbalizer_ids) + 1
-                if len(t0_context_title_ids) + to_be_added_len >= 512:
-                    truncate_len = len(t0_context_title_ids) + to_be_added_len - 512
+                if len(t0_context_title_ids) + to_be_added_len >= MAX_SEQUENCE_LEN:
+                    truncate_len = len(t0_context_title_ids) + to_be_added_len - MAX_SEQUENCE_LEN
                     t0_context_title_ids = t0_context_title_ids[: -truncate_len]
-
                 t0_context_title_ids.extend(verbalizer_ids)
                 t0_context_title_ids.extend([t0_tokenizer.eos_token_id])
 
-                all_title_context_ids.append(t0_context_title_ids)
+                all_title_context_ids_t0_tokenized.append(t0_context_title_ids)
 
-        all_context_ids.append(np.array(context_ids_list))
-        all_context_types.append(np.array(context_types_list))
 
-    return torch.cuda.LongTensor(all_context_ids), \
-           torch.cuda.LongTensor(all_context_types), \
-           all_title_context_ids
+    return all_title_context_ids_bert_tokenized, all_title_context_ids_t0_tokenized
 
 
 def query_single_context_t5_format(query_ids, title_ids, context_ids, max_seq_length, sep_id, pad_id):
