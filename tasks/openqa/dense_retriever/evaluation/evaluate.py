@@ -138,6 +138,10 @@ class OpenRetrievalEvaluator(object):
                 distance, topkindex = mips_index_cls.search_mips_index(query_tensor_view,
                                                                        top_k=args.report_topk_accuracies[-1],
                                                                        reconstruct=False)
+                if type(distance).__module__ == "numpy":
+                    distance = torch.from_numpy(distance).half().cuda()
+                    topkindex = torch.from_numpy(topkindex).int().cuda()
+
                 all_distance.append(distance)
                 all_topkindex.append(topkindex)
 
