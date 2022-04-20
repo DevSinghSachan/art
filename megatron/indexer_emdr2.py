@@ -97,12 +97,19 @@ class IndexBuilder(object):
         self.num_total_builders = mpu.get_data_parallel_world_size()
 
     def load_attributes(self, custom_load_path=None, key_list=None):
+        args = get_args()
         only_context_model = True
         model = get_model(lambda: dualencoder_model_provider(only_context_model=only_context_model))
-        self.model = load_dualencoder_checkpoint(model,
-                                                 only_context_model=only_context_model,
-                                                 custom_load_path=custom_load_path,
-                                                 key_list=key_list)
+
+        if args.bert_load is None:
+            self.model = load_dualencoder_checkpoint(model,
+                                                     only_context_model=only_context_model,
+                                                     custom_load_path=custom_load_path,
+                                                     key_list=key_list)
+        else:
+            model.init_state_dict_from_bert()
+            self.model = model
+
         self.model.eval()
         self.dataloader = iter(get_one_epoch_dataloader(self.dataset,
                                                         self.batch_size))
