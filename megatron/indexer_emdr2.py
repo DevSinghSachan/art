@@ -107,7 +107,10 @@ class IndexBuilder(object):
                                                      custom_load_path=custom_load_path,
                                                      key_list=key_list)
         else:
-            model.init_state_dict_from_bert()
+            unwrapped_model = model
+            while hasattr(unwrapped_model, 'module'):
+                unwrapped_model = unwrapped_model.module
+            unwrapped_model.init_state_dict_from_bert()
             self.model = model
 
         self.model.eval()
