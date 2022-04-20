@@ -162,9 +162,9 @@ def setup_model_and_optimizer(model_provider_func):
             optimizer._model_params_to_master_params()
 
     # This is supposed to be executed when EMDR2 is initialized
-    elif args.iteration == 0 and hasattr(unwrapped_model, 'init_state_dict_from_dpr_and_t5'):
+    elif args.iteration == 0 and hasattr(unwrapped_model, 'init_state_dict_from_dualencoder'):
         print("Initializing retriever model from pretrained Dual-Encoder and T5", flush=True)
-        unwrapped_model.init_state_dict_from_dpr_and_t5()
+        unwrapped_model.init_state_dict_from_dualencoder()
         if args.fp16:
             optimizer._model_params_to_master_params()
 

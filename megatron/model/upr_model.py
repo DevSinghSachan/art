@@ -9,10 +9,8 @@ from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.mpu import get_mips_group, get_node_first_rank
 from megatron import get_tokenizer
 from megatron.tokenizer.tokenizer import vocab_size_with_padding
-from megatron.data.mask_creation_utils import make_attention_mask_3d
 from megatron.data.emdr2_index import OpenRetreivalDataStore, DistributedBruteForceIndex
 from megatron.data.indexed_dataset import make_dataset as make_indexed_dataset
-from megatron.data.orqa_wiki_dataset import build_tokens_types_paddings_from_ids as context_bert_format
 from megatron.mpu.initialize import get_data_parallel_group
 from megatron import get_t0_model, get_t0_tokenizer
 from transformers import BertTokenizer as HFBertTokenizer
@@ -200,17 +198,24 @@ class UPRModel(MegatronModule):
         """Load the state dicts of each of the models"""
         self.retriever_model.load_state_dict(state_dict[self._retriever_model_key], strict)
 
-    def init_state_dict_from_dpr_and_t5(self):
+    def init_state_dict_from_bert(self):
+        """Initialize the state from pre-trained BERT model"""
+        if self.evidence_retriever is not None:
+            print("Initializing retriever model from pretrained BERT", flush=True)
+            self.evidence_retriever.init_state_dict_from_bert()
+
+    def init_state_dict_from_dualencoder(self):
         """Initialize the state from pre-trained DPR model and pre-trained T5 mode on iteration zero of pretraining"""
         args = get_args()
 
-        if args.pretrained_dpr_load is None:
-            warnings.warn("Pretrained Checkpoints are not found. Initializing from random weights")
+        if args.pretrained_dualencoder_load is None:
+            assert args.bert_load is not None
+            warnings.warn("Pretrained dual-encoder checkpoints are not found. Initializing from random weights")
             return
 
         print("Initializing retriever model from pretrained BERT", flush=True)
         load_dualencoder_checkpoint(self.retriever_model,
-                                    custom_load_path=args.pretrained_dpr_load)
+                                    custom_load_path=args.pretrained_dualencoder_load)
 
 
 def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, topk_evidence_data):

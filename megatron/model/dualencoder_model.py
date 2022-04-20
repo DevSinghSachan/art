@@ -1,4 +1,5 @@
 import os
+import warnings
 import torch
 from megatron import get_args, print_rank_0
 from megatron.checkpointing import get_checkpoint_tracker_filename, get_checkpoint_name
@@ -113,6 +114,7 @@ class DualEncoderModel(MegatronModule):
         args = get_args()
 
         if args.bert_load is None:
+            warnings.warn("Pretrained dual-encoder checkpoints are not found. Initializing from random weights")
             return
 
         tracker_filename = get_checkpoint_tracker_filename(args.bert_load)

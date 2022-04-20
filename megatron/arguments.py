@@ -39,7 +39,7 @@ def parse_args(extra_args_provider=None, defaults={},
     parser = _add_validation_args(parser)
     parser = _add_data_args(parser)
     parser = _add_autoresume_args(parser)
-    parser = _add_emdr2_args(parser)
+    parser = _add_upr_args(parser)
 
     # Custom arguments.
     if extra_args_provider is not None:
@@ -94,8 +94,10 @@ def parse_args(extra_args_provider=None, defaults={},
 
     # UPR Distillation-specific arguments
     if args.upr_distillation_training:
-        for req_arg in ['pretrained_dpr_load']:
-            _check_arg_is_not_none(args, req_arg)
+        if _check_arg_is_not_none(args, 'bert_load'):
+            assert args.pretrained_dualencoder_load is None
+        else:
+            _check_arg_is_not_none(args, 'pretrained_dualencoder_load')
 
     # Checks.
     if args.ffn_hidden_size is None:
@@ -501,15 +503,15 @@ def _add_autoresume_args(parser):
     return parser
 
 
-def _add_emdr2_args(parser):
+def _add_upr_args(parser):
     group = parser.add_argument_group(title='EMDR2')
 
     # checkpointing
     group.add_argument('--bert-load', type=str, default=None,
                        help='Directory containing an BertModel checkpoint (needed to start models such as DPR)')
 
-    group.add_argument('--pretrained-dpr-load', type=str, default=None,
-                       help='Directory containing a pre-trained DPR checkpoint (needed to start training)')
+    group.add_argument('--pretrained-dualencoder-load', type=str, default=None,
+                       help='Directory containing a pre-trained dualencoder checkpoint (needed to start training)')
 
     # data
     group.add_argument('--evidence-data-path', type=str, default=None,

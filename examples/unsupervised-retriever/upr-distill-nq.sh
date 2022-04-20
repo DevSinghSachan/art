@@ -69,7 +69,7 @@ OPTIONS=" \
           --save-interval 500 \
           --save ${CHECKPOINT_PATH} \
           --load ${CHECKPOINT_PATH} \
-          --pretrained-dpr-load ${RETRIEVER_CHKPT_PATH} \
+          --pretrained-dualencoder-load ${RETRIEVER_CHKPT_PATH} \
           --embedding-path ${EMBEDDING_PATH} \
           --log-interval 20 \
           --eval-interval 200000 \
@@ -78,7 +78,6 @@ OPTIONS=" \
           --seq-length 512 \
           --seq-length-ret 256 \
           --decoder-seq-length 32 \
-          --max-decode-len 32 \
           --max-position-embeddings 512 \
           --fp16 \
           --vocab-file $VOCAB_FILE \

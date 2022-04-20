@@ -101,7 +101,7 @@ class AsyncIndexBuilder(IndexBuilder):
             model_load_path = args.load
             key_list = ['retriever/biencoder_model']
         else:
-            model_load_path = args.pretrained_dpr_load
+            model_load_path = args.pretrained_dualencoder_load
             key_list = None
 
         # Load the context encoder weights
