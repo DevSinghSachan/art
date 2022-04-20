@@ -94,7 +94,7 @@ def parse_args(extra_args_provider=None, defaults={},
 
     # UPR Distillation-specific arguments
     if args.upr_distillation_training:
-        if _check_arg_is_not_none(args, 'bert_load'):
+        if args.bert_load is not None:
             assert args.pretrained_dualencoder_load is None
         else:
             _check_arg_is_not_none(args, 'pretrained_dualencoder_load')
