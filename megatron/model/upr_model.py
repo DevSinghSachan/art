@@ -200,9 +200,9 @@ class UPRModel(MegatronModule):
 
     def init_state_dict_from_bert(self):
         """Initialize the state from pre-trained BERT model"""
-        if self.evidence_retriever is not None:
+        if self.retriever_model is not None:
             print("Initializing retriever model from pretrained BERT", flush=True)
-            self.evidence_retriever.init_state_dict_from_bert()
+            self.retriever_model.init_state_dict_from_bert()
 
     def init_state_dict_from_dualencoder(self):
         """Initialize the state from pre-trained DPR model and pre-trained T5 mode on iteration zero of pretraining"""

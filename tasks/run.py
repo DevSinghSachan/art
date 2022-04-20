@@ -24,8 +24,6 @@ def get_tasks_args(parser):
                        help='Whitespace separated paths or corpora names for training.')
     group.add_argument('--valid-data', nargs='*', default=None, help='path(s) to the validation data.')
     group.add_argument('--test-data', nargs='*', default=None, help='path(s) to the test data.')
-    group.add_argument('--beam-size', default=1, type=int,
-                       help='Beam size to use for decoding. A beam size of 1 corresponds to greedy search')
     group.add_argument('--max-decode-len', default=512, type=int,
                        help='maximum sequence length to generate at the decoder.')
     group.add_argument('--eval-batch-size', type=int, default=None,
