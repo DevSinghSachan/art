@@ -14,10 +14,8 @@ from megatron.training import setup_model_and_optimizer
 from megatron.training import train_step
 from megatron.training import training_log
 from megatron.utils import reduce_losses
-from megatron import get_t5_tokenizer, get_t0_tokenizer, get_wikipedia_evidence
+from megatron import get_t0_tokenizer, get_wikipedia_evidence
 from megatron.mpu import vocab_parallel_cross_entropy as cross_entropy
-from megatron.model.search_strategy import SampleOrGreedySearch, BeamSearch
-from tasks.openqa.e2eqa.eval_utils import exact_match_score, metric_max_over_ground_truths
 from megatron.indexer_emdr2 import IndexBuilder
 from tasks.openqa.dense_retriever.evaluation.evaluate import OpenRetrievalEvaluator
 

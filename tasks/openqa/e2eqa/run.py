@@ -35,7 +35,7 @@ def open_retrieval_generative_qa(dataset_cls):
     def model_provider():
         """Build the model."""
         args = get_args()
-        print_rank_0('building EMDR2 model for {} ...'.format(args.task))
+        print_rank_0('building UPR-distillation model for {} ...'.format(args.task))
         evidence_retriever = PreComputedEvidenceDocsRetriever()
         model = UPRModel(evidence_retriever)
         return model
