@@ -213,7 +213,7 @@ class UPRModel(MegatronModule):
             warnings.warn("Pretrained dual-encoder checkpoints are not found. Initializing from random weights")
             return
 
-        print("Initializing retriever model from pretrained BERT", flush=True)
+        print_rank_0("Initializing retriever model from pretrained Dual-Encoder checkpoint")
         load_dualencoder_checkpoint(self.retriever_model,
                                     custom_load_path=args.pretrained_dualencoder_load)
 
