@@ -611,5 +611,7 @@ def _add_upr_args(parser):
                        help='After how many batches should the indexer report progress')
     group.add_argument('--allow-trivial-doc', action='store_true',
                        help='allow retriever to fetch the document from which a query came')
+    group.add_argument('--run-indexer', action='store_true',
+                       help='Whether to run the indexer job or not')
     return parser
 

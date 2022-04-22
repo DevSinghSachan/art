@@ -97,7 +97,7 @@ class OpenRetrievalEvaluator(object):
         query_tensor = torch.cat(query_vectors, dim=0)
         return query_list, query_tensor, reference_list
 
-    def evaluate(self, qa_file, split, mips_index=None, evidence_id2text=None):
+    def evaluate(self, qa_file, split, mips_index=None, evidence_id2text=None, iteration_num=-1):
         args = get_args()
         eval_dataset = get_qa_dataset(qa_file, split)
         query_list, query_tensor, reference_list = self.generate_query_vectors(eval_dataset)
@@ -188,11 +188,13 @@ class OpenRetrievalEvaluator(object):
         # Accumulating and summing top-k hits scores from all the ranks
         torch.distributed.all_reduce(top_k_hits, torch.distributed.ReduceOp.SUM)
 
-        print_rank_0("{} SET RESULTS".format(split))
         top_k_hits = [v / num_rows for v in top_k_hits]
 
+        print_str = "{} SET RESULTS\tstep: {}\t".format(split, iteration_num)
         for i in args.report_topk_accuracies:
-            print_rank_0("top-{}: {:.2f}".format(i, top_k_hits[i-1] * 100))
+            print_str += "top-{}: {:.2f}\t".format(i, top_k_hits[i-1] * 100)
+
+        print_rank_0(print_str)
 
         if args.save_topk_outputs_path is not None:
             all_data = []

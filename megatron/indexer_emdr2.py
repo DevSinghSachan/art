@@ -101,7 +101,7 @@ class IndexBuilder(object):
         only_context_model = True
         model = get_model(lambda: dualencoder_model_provider(only_context_model=only_context_model))
 
-        if args.bert_load is None:
+        if args.run_indexer and args.bert_load is None:
             self.model = load_dualencoder_checkpoint(model,
                                                      only_context_model=only_context_model,
                                                      custom_load_path=custom_load_path,
