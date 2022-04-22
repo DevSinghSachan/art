@@ -114,7 +114,7 @@ class DualEncoderModel(MegatronModule):
         args = get_args()
 
         if args.bert_load is None:
-            warnings.warn("Pretrained dual-encoder checkpoints are not found. Initializing from random weights")
+            warnings.warn("Pretrained BERT checkpoints are not found. Initializing from random weights")
             return
 
         tracker_filename = get_checkpoint_tracker_filename(args.bert_load)

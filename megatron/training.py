@@ -154,19 +154,21 @@ def setup_model_and_optimizer(model_provider_func):
     while hasattr(unwrapped_model, 'module'):
         unwrapped_model = unwrapped_model.module
 
-    # This is supposed to be executed when Biencoder Model is initialized
+    # This is supposed to be executed when DualEncoder Model is initialized with BERT
     if args.iteration == 0 and hasattr(unwrapped_model, 'init_state_dict_from_bert'):
-        print("Initializing from pretrained BERT model", flush=True)
-        unwrapped_model.init_state_dict_from_bert()
-        if args.fp16:
-            optimizer._model_params_to_master_params()
+        if args.bert_load is not None:
+            print_rank_0("Initializing from pretrained BERT model")
+            unwrapped_model.init_state_dict_from_bert()
+            if args.fp16:
+                optimizer._model_params_to_master_params()
 
-    # This is supposed to be executed when EMDR2 is initialized
+    # This is supposed to be executed when DualEncoder is initialized with pre-trained weights
     elif args.iteration == 0 and hasattr(unwrapped_model, 'init_state_dict_from_dualencoder'):
-        print("Initializing retriever model from pretrained Dual-Encoder and T5", flush=True)
-        unwrapped_model.init_state_dict_from_dualencoder()
-        if args.fp16:
-            optimizer._model_params_to_master_params()
+        if args.pretrained_dualencoder_load is not None:
+            print_rank_0("Initializing retriever model from pretrained Dual-Encoder")
+            unwrapped_model.init_state_dict_from_dualencoder()
+            if args.fp16:
+                optimizer._model_params_to_master_params()
 
     return model, optimizer, lr_scheduler
 
