@@ -12,11 +12,10 @@ def get_open_retrieval_wiki_dataset():
     args = get_args()
     tokenizer = get_tokenizer()
 
-    dataset = OpenRetrievalEvidenceDataset('2018 Wikipedia from DPR codebase',
-                                           'evidence',
-                                           args.evidence_data_path,
-                                           tokenizer,
-                                           args.seq_length_ret)
+    dataset = EvidenceDatasetPreTokenized('2018 Wikipedia from DPR codebase',
+                                          'evidence',
+                                          tokenizer,
+                                          args.seq_length_ret)
     return dataset
 
 
@@ -69,10 +68,10 @@ def build_tokens_types_paddings_from_ids(text_ids, max_seq_length,
     return enc_ids, tokentypes_enc, pad_mask
 
 
-class OpenRetrievalEvidenceDataset(ABC, Dataset):
+class EvidenceDatasetPreTokenized(ABC, Dataset):
     """Open Retrieval Evidence dataset class."""
 
-    def __init__(self, task_name, dataset_name, datapath, tokenizer, max_seq_length):
+    def __init__(self, task_name, dataset_name, tokenizer, max_seq_length):
         # Store inputs.
         self.task_name = task_name
         self.dataset_name = dataset_name
@@ -88,10 +87,6 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
         self.title_map = make_indexed_dataset(args.indexed_title_bert_tokenized_data_path,
                                               impl=args.data_impl,
                                               skip_warmup=(not args.mmap_warmup))
-        # Process the files.
-        # print_rank_0(datapath)
-        # self.samples, self.id2text = process_samples_from_single_path(datapath)
-
         print_rank_0('  >> total number of passages: {}'.format(len(self.passages_map)))
 
     def __len__(self):
@@ -104,8 +99,8 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
 
         title_text_ids = [self.tokenizer.cls] + title_ids + [self.tokenizer.sep] + text_ids
         to_be_added_len = 1
-        if len(title_text_ids) + to_be_added_len >= 256:
-            truncate_len = len(title_text_ids) + to_be_added_len - 256
+        if len(title_text_ids) + to_be_added_len >= self.max_seq_length:
+            truncate_len = len(title_text_ids) + to_be_added_len - self.max_seq_length
             title_text_ids = title_text_ids[: -truncate_len]
 
         title_text_ids.extend([self.tokenizer.sep])

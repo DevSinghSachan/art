@@ -20,6 +20,8 @@ class CustomDataLoader(DataLoader):
             kwargs['collate_fn'] = self._collate_fn
         self.eval = eval
         self.bert_tokenizer = BertTokenizer.from_pretrained("bert-large-uncased")
+        args = get_args()
+        self.max_seq_length = args.seq_length_ret
         super().__init__(dataset, **kwargs)
 
     def _collate_fn(self, batch_data):
@@ -37,11 +39,11 @@ class CustomDataLoader(DataLoader):
 
         input_encoding = self.bert_tokenizer.pad({'input_ids': tensorized['title_text_ids']},
                                                  padding='longest',
-                                                 max_length=256,
+                                                 max_length=self.max_seq_length,
                                                  pad_to_multiple_of=8,
                                                  return_attention_mask=True,
                                                  return_tensors='pt')
-        assert input_encoding.input_ids.size(1) <= 256
+        assert input_encoding.input_ids.size(1) <= self.max_seq_length
 
         tensorized['context'] = input_encoding.input_ids
         tensorized['context_pad_mask'] = input_encoding.attention_mask
@@ -101,17 +103,17 @@ class IndexBuilder(object):
         only_context_model = True
         model = get_model(lambda: dualencoder_model_provider(only_context_model=only_context_model))
 
-        if not args.run_indexer:
-            self.model = load_dualencoder_checkpoint(model,
-                                                     only_context_model=only_context_model,
-                                                     custom_load_path=custom_load_path,
-                                                     key_list=key_list)
-        elif args.bert_load is not None:
+        if args.run_indexer and (args.bert_load is not None):
             unwrapped_model = model
             while hasattr(unwrapped_model, 'module'):
                 unwrapped_model = unwrapped_model.module
             unwrapped_model.init_state_dict_from_bert()
             self.model = model
+        else:
+            self.model = load_dualencoder_checkpoint(model,
+                                                     only_context_model=only_context_model,
+                                                     custom_load_path=custom_load_path,
+                                                     key_list=key_list)
 
         self.model.eval()
         self.dataloader = iter(get_one_epoch_dataloader(self.dataset,
