@@ -26,7 +26,7 @@ def flatten(ids, types):
 
 
 class UPRModel(MegatronModule):
-    def __init__(self, evidence_retriever):
+    def __init__(self, evidence_retriever=None):
         super(UPRModel, self).__init__()
         args = get_args()
         self.topk = args.topk_retrievals

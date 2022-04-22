@@ -163,7 +163,7 @@ def setup_model_and_optimizer(model_provider_func):
                 optimizer._model_params_to_master_params()
 
     # This is supposed to be executed when DualEncoder is initialized with pre-trained weights
-    elif args.iteration == 0 and hasattr(unwrapped_model, 'init_state_dict_from_dualencoder'):
+    if args.iteration == 0 and hasattr(unwrapped_model, 'init_state_dict_from_dualencoder'):
         if args.pretrained_dualencoder_load is not None:
             print_rank_0("Initializing retriever model from pretrained Dual-Encoder")
             unwrapped_model.init_state_dict_from_dualencoder()
