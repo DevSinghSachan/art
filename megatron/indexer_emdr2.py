@@ -101,10 +101,18 @@ class IndexBuilder(object):
         only_context_model = True
         model = get_model(lambda: dualencoder_model_provider(only_context_model=only_context_model))
 
-        self.model = load_dualencoder_checkpoint(model,
-                                                 only_context_model=only_context_model,
-                                                 custom_load_path=custom_load_path,
-                                                 key_list=key_list)
+        if args.bert_load is None:
+            self.model = load_dualencoder_checkpoint(model,
+                                                     only_context_model=only_context_model,
+                                                     custom_load_path=custom_load_path,
+                                                     key_list=key_list)
+        else:
+            unwrapped_model = model
+            while hasattr(unwrapped_model, 'module'):
+                unwrapped_model = unwrapped_model.module
+            unwrapped_model.init_state_dict_from_bert()
+            self.model = model
+
         self.model.eval()
         self.dataloader = iter(get_one_epoch_dataloader(self.dataset,
                                                         self.batch_size))
