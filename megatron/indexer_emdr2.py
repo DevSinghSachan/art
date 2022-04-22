@@ -101,12 +101,12 @@ class IndexBuilder(object):
         only_context_model = True
         model = get_model(lambda: dualencoder_model_provider(only_context_model=only_context_model))
 
-        if args.run_indexer is False and args.bert_load is None:
+        if not args.run_indexer:
             self.model = load_dualencoder_checkpoint(model,
                                                      only_context_model=only_context_model,
                                                      custom_load_path=custom_load_path,
                                                      key_list=key_list)
-        else:
+        elif args.bert_load is not None:
             unwrapped_model = model
             while hasattr(unwrapped_model, 'module'):
                 unwrapped_model = unwrapped_model.module
