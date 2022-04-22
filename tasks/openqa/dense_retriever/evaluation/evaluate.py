@@ -1,6 +1,5 @@
 import os
 import shutil
-import math
 import json
 import torch
 from megatron import get_args, print_rank_0, get_tokenizer, mpu
@@ -18,12 +17,9 @@ class OpenRetrievalEvaluator(object):
                  load_evidence_dataset=True,
                  use_faiss=True):
         args = get_args()
-        # self.embedding_size = args.hidden_size
-        # self.faiss_use_gpu = args.faiss_use_gpu
         self.evidence_embedder_obj = None
         self.evidence_dataset = None
         self.mips_index = None
-        # self.eval_dataset = None
 
         # Load query encoder checkpoint
         only_query_model = True

@@ -90,7 +90,7 @@ OPTIONS=" \
           --epochs 10 \
           --sample-rate 1.0 \
           --batch-size 1 \
-          --eval-batch-size 4 \
+          --eval-batch-size 1 \
           --lr 2e-5 \
           --warmup 0.01 \
           --DDP-impl local \

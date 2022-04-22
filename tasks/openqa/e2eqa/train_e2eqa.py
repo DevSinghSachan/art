@@ -1,5 +1,4 @@
 from collections import OrderedDict
-import time
 import sys
 import torch
 from torch.utils.data import DataLoader
@@ -15,7 +14,6 @@ from megatron.training import train_step
 from megatron.training import training_log
 from megatron.utils import reduce_losses
 from megatron import get_t0_tokenizer, get_wikipedia_evidence
-from megatron.mpu import vocab_parallel_cross_entropy as cross_entropy
 from megatron.indexer_emdr2 import IndexBuilder
 from tasks.openqa.dense_retriever.evaluation.evaluate import OpenRetrievalEvaluator
 
@@ -121,38 +119,6 @@ def _cross_entropy_forward_step(batch, model):
     reduced_loss = reduce_losses([retriever_loss])
 
     return net_loss, {'retriever_loss': reduced_loss[0]}
-
-
-def validation_loss(model, dataloader):
-    total = 0
-    score = 0
-    model.eval()
-    with torch.no_grad():
-        for batch in dataloader:
-            query_uid, query_ids_bert, query_types, query_mask_bert, \
-            query_ids_t5, query_ids_t5_len, dec_ids, labels, loss_mask, reference = process_batch(batch)
-
-            # Forward model.
-            lm_logits, topk_log_probs, _, _ = model(query_uid,
-                                                    query_ids_bert,
-                                                    query_types,
-                                                    query_mask_bert,
-                                                    query_ids_t5,
-                                                    query_ids_t5_len,
-                                                    dec_ids)
-            # Calculating LM Loss as is commonly done.
-            lm_loss_ = cross_entropy(lm_logits.float(), labels)
-            lm_loss = torch.sum(lm_loss_.view(-1) * loss_mask.reshape(-1)) / loss_mask.sum()
-            total += 1
-            score += lm_loss
-    model.train()
-
-    unreduced = torch.cuda.FloatTensor([score, total])
-    torch.distributed.all_reduce(unreduced,
-                                 group=mpu.get_data_parallel_group())
-
-    return {'Validation Loss': unreduced[0]}, unreduced[1]
-
 
 
 def accuracy_func_provider(single_dataset_provider, datapath):

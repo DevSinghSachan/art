@@ -4,7 +4,7 @@ from collections import OrderedDict
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
-from torch.utils.data import Dataset, BatchSampler
+from torch.utils.data import Dataset
 from megatron.data.samplers import DistributedBatchSampler
 from megatron import print_rank_0, get_args, get_tokenizer, mpu
 from megatron.data.mask_creation_utils import make_attention_mask
@@ -73,11 +73,8 @@ def get_one_epoch_qa_dataloader(dataset, batch_size=None):
     global_batch_size = batch_size * world_size
 
     sampler = torch.utils.data.SequentialSampler(dataset)
-    # importantly, drop_last must be False to get all the data.
-    # batch_sampler = BatchSampler(sampler,
-    #                              batch_size=batch_size,
-    #                              drop_last=False)
 
+    # importantly, drop_last must be False to get all the data.
     batch_sampler = DistributedBatchSampler(sampler,
                                             batch_size=global_batch_size,
                                             drop_last=False,
