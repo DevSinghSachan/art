@@ -296,11 +296,15 @@ def _train(model, optimizer, lr_scheduler, forward_step, train_dataloader):
                 unwrapped_model.evidence_retriever.update_evidence_embedding()
                 print_rank_0("Training Group: MIPS Index Updated")
 
+                last_reload_iteration = iteration
+
+            if iteration > 1 and (iteration % args.eval_interval == 0):
                 # Get the retrieval score
+                unwrapped_model = model
+                while hasattr(unwrapped_model, 'module'):
+                    unwrapped_model = unwrapped_model.module
                 get_retrieval_score(unwrapped_model.evidence_retriever.mips_index,
                                     iteration)
-
-                last_reload_iteration = iteration
 
             # Train for one step.
             losses_dict, skipped_iter = train_step(forward_step, batch, model,

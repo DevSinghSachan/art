@@ -401,7 +401,7 @@ def _add_validation_args(parser):
                        help='Number of iterations to run for evaluation'
                        'validation/test for.')
 
-    group.add_argument('--eval-interval', type=int, default=1000,
+    group.add_argument('--eval-interval', type=int, default=500,
                        help='Interval between running evaluation on '
                        'validation set.')
     return parser
