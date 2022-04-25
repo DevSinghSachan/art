@@ -78,7 +78,7 @@ class UPRModel(MegatronModule):
         topk = self.topk
         bsize, max_seq_len = query_ids_bert.shape
 
-        assert bsize == 1, "for auto-encoder pre-training, we assume a local batch size of 1"
+        # assert bsize == 1, "for auto-encoder pre-training, we assume a local batch size of 1"
         assert args.initialize_t0_model_tokenizer_evidence, "for auto-encoder pre-training, we need to pass the argument --initialize-t0-model-and-tokenizer"
 
         language_model = get_t0_model()
