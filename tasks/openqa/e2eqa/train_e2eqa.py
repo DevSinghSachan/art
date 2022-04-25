@@ -259,6 +259,7 @@ def _train(model, optimizer, lr_scheduler, forward_step, train_dataloader):
 
     # For async updates
     last_reload_iteration = None
+    last_eval_iteration = iteration
 
     if args.compute_fresh_evidence_embeddings:
         last_reload_iteration = iteration
@@ -287,7 +288,6 @@ def _train(model, optimizer, lr_scheduler, forward_step, train_dataloader):
             if args.compute_fresh_evidence_embeddings and iteration >= last_reload_iteration + args.index_reload_interval:
                 # Recompute evidence embeddings
                 call_evidence_index_builder()
-
                 print_rank_0("Training Group: Updating MIPS Index")
                 # get model without FP16 and/or TorchDDP wrappers
                 unwrapped_model = model
@@ -295,16 +295,15 @@ def _train(model, optimizer, lr_scheduler, forward_step, train_dataloader):
                     unwrapped_model = unwrapped_model.module
                 unwrapped_model.evidence_retriever.update_evidence_embedding()
                 print_rank_0("Training Group: MIPS Index Updated")
-
                 last_reload_iteration = iteration
 
-            if iteration > 1 and (iteration % args.eval_interval == 0):
-                # Get the retrieval score
+            if iteration >= last_eval_iteration + args.eval_interval:
                 unwrapped_model = model
                 while hasattr(unwrapped_model, 'module'):
                     unwrapped_model = unwrapped_model.module
                 get_retrieval_score(unwrapped_model.evidence_retriever.mips_index,
                                     iteration)
+                last_eval_iteration = iteration
 
             # Train for one step.
             losses_dict, skipped_iter = train_step(forward_step, batch, model,
