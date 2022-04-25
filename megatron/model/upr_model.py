@@ -99,13 +99,8 @@ class UPRModel(MegatronModule):
 
         with torch.no_grad():
             output = postprocess(query_uid,
-                                 prefixed_query_ids_t0,
-                                 prefixed_query_ids_t0_len,
                                  topk_evidence_data)
             all_title_context_ids_bert_tokenized, all_title_context_ids_for_t0 = output
-
-        # reshape the all_context_tokens, all_context_mask, and seq lengths
-        # all_context_ids, all_context_types = flatten(all_context_ids, all_context_types)
 
         input_encoding = self.hf_bert_tokenizer.pad({'input_ids': all_title_context_ids_bert_tokenized},
                                                     padding='longest',
@@ -148,41 +143,47 @@ class UPRModel(MegatronModule):
         topk_log_probs = topk_log_probs.squeeze(1)
 
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
-
         log_prob_list = []
 
-        for i in range(0, bsize*topk, args.shard_size):
+        for k in range(0, bsize * topk, topk):
+            log_prob_list_one_question = []
+            all_title_context_ids_one_question = all_title_context_ids_for_t0[k: k + topk]
+            decoder_prefix_tensor_one_question = decoder_prefix_tensor[k: k + topk]
+            prefixed_query_ids_t0_len_one_question = prefixed_query_ids_t0_len[k / topk]
 
-            all_title_context_ids_view = all_title_context_ids_for_t0[i: i + args.shard_size]
-            # pad the sequences
-            input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids_view},
-                                                   padding='longest',
-                                                   max_length=512,
-                                                   pad_to_multiple_of=8,
-                                                   return_attention_mask=True,
-                                                   return_tensors='pt')
-            assert input_encoding.input_ids.size(1) <= 512
-            context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
+            for i in range(0, topk, args.shard_size):
+                all_title_context_ids_view = all_title_context_ids_one_question[i: i + args.shard_size]
+                # pad the sequences
+                input_encoding = self.t0_tokenizer.pad({'input_ids': all_title_context_ids_view},
+                                                       padding='longest',
+                                                       max_length=512,
+                                                       pad_to_multiple_of=8,
+                                                       return_attention_mask=True,
+                                                       return_tensors='pt')
+                assert input_encoding.input_ids.size(1) <= 512
+                context_tensor, attention_mask = input_encoding.input_ids.cuda(), input_encoding.attention_mask.cuda()
+                decoder_prefix_tensor_view = decoder_prefix_tensor_one_question[i: i + args.shard_size]
 
-            decoder_prefix_tensor_view = decoder_prefix_tensor[i: i + args.shard_size]
+                with torch.no_grad():
+                    lm_output = language_model(input_ids=context_tensor,
+                                               attention_mask=attention_mask,
+                                               labels=decoder_prefix_tensor_view,
+                                               output_attentions=False,
+                                               output_hidden_states=False)
+                    lm_logits = lm_output.logits.float()
+                    _, decoder_seq_length, vocab_size = lm_logits.shape
 
-            with torch.no_grad():
-                lm_output = language_model(input_ids=context_tensor,
-                                           attention_mask=attention_mask,
-                                           labels=decoder_prefix_tensor_view,
-                                           output_attentions=False,
-                                           output_hidden_states=False)
-                lm_logits = lm_output.logits.float()
-                _, decoder_seq_length, vocab_size = lm_logits.shape
+                    log_softmax = F.log_softmax(lm_logits, dim=-1)
+                    gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
 
-                log_softmax = F.log_softmax(lm_logits, dim=-1)
-                gold_log_probs = log_softmax.gather(2, decoder_prefix_tensor_view.unsqueeze(2)).squeeze(2)
+                    # this will work because the batch size is 1 and this implies all decoder labels have the same length
+                    teacher_log_probs = torch.mean(gold_log_probs[:, :prefixed_query_ids_t0_len_one_question], dim=1)
+                    log_prob_list_one_question.append(teacher_log_probs)
 
-                # this will work because the batch size is 1 and this implies all decoder labels have the same length
-                teacher_log_probs = torch.mean(gold_log_probs[:, :prefixed_query_ids_t0_len], dim=1)
-                log_prob_list.append(teacher_log_probs)
+            log_prob_list_one_question = torch.cat(log_prob_list_one_question).unsqueeze(0)
+            log_prob_list.append(log_prob_list_one_question)
 
-        gold_log_probs = torch.cat(log_prob_list).unsqueeze(0)
+        gold_log_probs = torch.cat(log_prob_list, dim=0)
         return topk_log_probs, gold_log_probs
 
 
@@ -218,7 +219,7 @@ class UPRModel(MegatronModule):
                                     custom_load_path=args.pretrained_dualencoder_load)
 
 
-def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, topk_evidence_data):
+def postprocess(query_uid, topk_evidence_data):
     args = get_args()
     query_uid = query_uid.tolist()
     bert_tokenizer = get_tokenizer()
@@ -232,10 +233,7 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
     all_title_context_ids_t0_tokenized = []
     MAX_SEQUENCE_LEN = 512
 
-    for qid, prefixed_query_t0_ids, prefixed_query_t0_len, (topkids, text_list, text_list_t0) in zip(query_uid,
-                                                                                                     prefixed_query_ids_t0,
-                                                                                                     prefixed_query_ids_t0_len,
-                                                                                                     topk_evidence_data):
+    for qid, (topkids, text_list, text_list_t0) in zip(query_uid, topk_evidence_data):
         k = 0
         for eid, (context_ids, title_ids), (context_ids_t0, title_ids_t0) in zip(topkids, text_list, text_list_t0):
             t0_context_title_ids = []
@@ -266,7 +264,6 @@ def postprocess(query_uid, prefixed_query_ids_t0, prefixed_query_ids_t0_len, top
                 t0_context_title_ids.extend([t0_tokenizer.eos_token_id])
 
                 all_title_context_ids_t0_tokenized.append(t0_context_title_ids)
-
 
     return all_title_context_ids_bert_tokenized, all_title_context_ids_t0_tokenized
 
