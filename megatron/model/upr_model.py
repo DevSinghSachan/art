@@ -149,7 +149,7 @@ class UPRModel(MegatronModule):
             log_prob_list_one_question = []
             all_title_context_ids_one_question = all_title_context_ids_for_t0[k: k + topk]
             decoder_prefix_tensor_one_question = decoder_prefix_tensor[k: k + topk]
-            prefixed_query_ids_t0_len_one_question = prefixed_query_ids_t0_len[k / topk]
+            prefixed_query_ids_t0_len_one_question = prefixed_query_ids_t0_len[k // topk]
 
             for i in range(0, topk, args.shard_size):
                 all_title_context_ids_view = all_title_context_ids_one_question[i: i + args.shard_size]
