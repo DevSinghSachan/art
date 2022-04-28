@@ -72,7 +72,7 @@ OPTIONS=" \
           --pretrained-dualencoder-load ${RETRIEVER_CHKPT_PATH} \
           --embedding-path ${EMBEDDING_PATH} \
           --log-interval 20 \
-          --eval-interval 200000 \
+          --eval-interval 500 \
           --eval-iters 10 \
           --weight-decay 1.0e-1 \
           --seq-length 512 \

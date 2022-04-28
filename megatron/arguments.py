@@ -605,7 +605,7 @@ def _add_upr_args(parser):
                        help='Path of directory to save the topk outputs from retriever')
 
     # indexer
-    group.add_argument('--indexer-batch-size', type=int, default=64,
+    group.add_argument('--indexer-batch-size', type=int, default=128,
                        help='How large of batches to use when doing indexing jobs')
     group.add_argument('--indexer-log-interval', type=int, default=1000,
                        help='After how many batches should the indexer report progress')

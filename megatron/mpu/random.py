@@ -71,7 +71,7 @@ def reset_checkpointed_activations_memory_buffer():
 def _set_cuda_rng_state(new_state, device=-1):
     """Sets the random number generator state of the current GPU.
 
-    Argumentss:
+    Arguments:
         new_state (torch.ByteTensor): The desired state
     This function is adapted from PyTorch repo (torch.cuda.set_rng_state)
     with a single change: the input state is not cloned. Cloning caused
@@ -224,7 +224,7 @@ def model_parallel_cuda_manual_seed(seed):
     # 2718 is just for fun and any POSITIVE value will work.
     offset = seed + 2718
     model_parallel_seed = offset + get_model_parallel_rank()
-    # Data parallel gets the original sedd.
+    # Data parallel gets the original seed.
     data_parallel_seed = seed
 
     if torch.distributed.get_rank() == 0:

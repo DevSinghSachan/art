@@ -140,7 +140,7 @@ def _init_autoresume():
 
 
 def _set_random_seed(seed):
-    """Set random seed for reproducability."""
+    """Set random seed for reproducibility."""
     if seed is not None and seed > 0:
         random.seed(seed)
         np.random.seed(seed)
