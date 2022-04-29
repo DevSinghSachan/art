@@ -81,9 +81,6 @@ class UPRModel(MegatronModule):
         # assert bsize == 1, "for auto-encoder pre-training, we assume a local batch size of 1"
         assert args.initialize_t0_model_tokenizer_evidence, "for auto-encoder pre-training, we need to pass the argument --initialize-t0-model-and-tokenizer"
 
-        language_model = get_t0_model()
-        language_model = language_model.cuda()
-
         # Compute "fresh" query logits
         query_logits = self.retriever_embedder(query_ids_bert,
                                                query_mask_bert,
@@ -102,48 +99,12 @@ class UPRModel(MegatronModule):
                                  topk_evidence_data)
             all_title_context_ids_bert_tokenized, all_title_context_ids_for_t0 = output
 
-        input_encoding = self.hf_bert_tokenizer.pad({'input_ids': all_title_context_ids_bert_tokenized},
-                                                    padding='longest',
-                                                    max_length=512,
-                                                    pad_to_multiple_of=8,
-                                                    return_attention_mask=True,
-                                                    return_tensors='pt')
-        assert input_encoding.input_ids.size(1) <= 512
-
-        all_title_context_ids = input_encoding.input_ids.cuda()
-        all_context_types = torch.cuda.LongTensor(input_encoding.input_ids.size()).fill_(0)
-        all_context_mask = (all_title_context_ids[:, None, :] >= 1) * (all_title_context_ids[:, :, None] >= 1)
-        # Inverting the mask
-        all_context_mask = ~all_context_mask
-
-        # Compute "fresh" context logits
-        all_context_logits = self.retriever_embedder(all_title_context_ids,
-                                                     all_context_mask,
-                                                     all_context_types,
-                                                     embedder_type="context",
-                                                     disable_dropout=args.disable_retriever_dropout)
-        all_context_logits = all_context_logits.reshape(bsize, topk, -1)
-
-        if args.no_context_embedder_training:
-            all_context_logits = all_context_logits.detach()
-
-        # [B, 1, dim]
-        query_logits = query_logits.unsqueeze(1).float()
-        all_context_logits = all_context_logits.float()
-
-        # [B, 1, K]
-        topk_sim_scores = torch.bmm(query_logits, all_context_logits.transpose(1, 2))
-
-        if args.retriever_score_scaling:
-            topk_sim_scores = topk_sim_scores / (args.inverse_temperature_multiplier * math.sqrt(args.hidden_size))
-
-        # [B, 1, K]
-        topk_log_probs = F.log_softmax(topk_sim_scores, dim=2)
-        # B x 1 x K -> B x K
-        topk_log_probs = topk_log_probs.squeeze(1)
-
+        # Compute the language model score of the retrieved passages
         decoder_prefix_tensor = torch.repeat_interleave(prefixed_query_ids_t0, topk, dim=0)
         log_prob_list = []
+
+        language_model = get_t0_model()
+        language_model = language_model.cuda()
 
         for k in range(0, bsize * topk, topk):
             log_prob_list_one_question = []
@@ -184,6 +145,49 @@ class UPRModel(MegatronModule):
             log_prob_list.append(log_prob_list_one_question)
 
         gold_log_probs = torch.cat(log_prob_list, dim=0)
+
+
+        # Compute the retriever score
+        input_encoding = self.hf_bert_tokenizer.pad({'input_ids': all_title_context_ids_bert_tokenized},
+                                                    padding='longest',
+                                                    max_length=512,
+                                                    pad_to_multiple_of=8,
+                                                    return_attention_mask=True,
+                                                    return_tensors='pt')
+        assert input_encoding.input_ids.size(1) <= 512
+
+        all_title_context_ids = input_encoding.input_ids.cuda()
+        all_context_types = torch.cuda.LongTensor(input_encoding.input_ids.size()).fill_(0)
+        all_context_mask = (all_title_context_ids[:, None, :] >= 1) * (all_title_context_ids[:, :, None] >= 1)
+        # Inverting the mask
+        all_context_mask = ~all_context_mask
+
+        # Compute "fresh" context logits
+        all_context_logits = self.retriever_embedder(all_title_context_ids,
+                                                     all_context_mask,
+                                                     all_context_types,
+                                                     embedder_type="context",
+                                                     disable_dropout=args.disable_retriever_dropout)
+        all_context_logits = all_context_logits.reshape(bsize, topk, -1)
+
+        if args.no_context_embedder_training:
+            all_context_logits = all_context_logits.detach()
+
+        # [B, 1, dim]
+        query_logits = query_logits.unsqueeze(1).float()
+        all_context_logits = all_context_logits.float()
+
+        # [B, 1, K]
+        topk_sim_scores = torch.bmm(query_logits, all_context_logits.transpose(1, 2))
+
+        if args.retriever_score_scaling:
+            topk_sim_scores = topk_sim_scores / (args.inverse_temperature_multiplier * math.sqrt(args.hidden_size))
+
+        # [B, 1, K]
+        topk_log_probs = F.log_softmax(topk_sim_scores, dim=2)
+        # B x 1 x K -> B x K
+        topk_log_probs = topk_log_probs.squeeze(1)
+
         return topk_log_probs, gold_log_probs
 
 

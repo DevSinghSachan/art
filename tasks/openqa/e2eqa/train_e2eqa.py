@@ -345,8 +345,8 @@ def train(train_valid_datasets_provider, model_provider,
     timers('train/valid/test dataset/dataloder').start()
     if args.epochs > 0:
         train_dataset, valid_dataset = train_valid_datasets_provider()
-        train_dataloader, valid_dataloader = _build_train_valid_dataloaders(
-            train_dataset, valid_dataset)
+        train_dataloader, valid_dataloader = _build_train_valid_dataloaders(train_dataset,
+                                                                            valid_dataset)
     timers('train/valid/test dataset/dataloder').stop()
 
     # Build model, optimizer and learning rate scheduler.
