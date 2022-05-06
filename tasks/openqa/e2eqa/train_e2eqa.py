@@ -329,8 +329,8 @@ def _train(model, optimizer, lr_scheduler, forward_step, train_dataloader):
                 sys.exit(0)
 
         # Checkpointing at the end of each epoch.
-        if args.save:
-            save_checkpoint(iteration, model, optimizer, lr_scheduler)
+        # if args.save:
+        #     save_checkpoint(iteration, model, optimizer, lr_scheduler)
 
 
 def train(train_valid_datasets_provider, model_provider,
