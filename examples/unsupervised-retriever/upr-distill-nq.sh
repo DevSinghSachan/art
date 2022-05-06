@@ -10,7 +10,7 @@ QA_FILE_DEV="${BASE_DIR}/data/dpr/retriever/qas/nq-dev.csv"
 QA_FILE_TEST="${BASE_DIR}/data/dpr/retriever/qas/nq-test.csv"
 
 EVIDENCE_DATA_PATH="${BASE_DIR}/data/dpr/wikipedia_split/psgs_w100.tsv"
-TOPK=128
+TOPK=32
 
 RETRIEVER_CHKPT_PATH="${BASE_DIR}/checkpoints/mss-emdr2-retriever-base-steps82k"
 VOCAB_FILE="${BASE_DIR}/bert-vocab/bert-large-uncased-vocab.txt"
@@ -47,9 +47,20 @@ function config_base() {
 --model-parallel-size 1"
 }
 
+function config_large() {
+    export CONFIG_ARGS="--num-layers 24 \
+--hidden-size 1024 \
+--num-attention-heads 16 \
+--kv-channels 64 \
+--ffn-hidden-size 4096 \
+--model-parallel-size 1"
+}
+
 
 if [ ${CONFIG} == "base" ]; then
     config_base
+elif [ ${CONFIG} == "large" ]; then
+    config_large
 else
     echo "Invalid model configuration"
     exit 1
@@ -89,7 +100,7 @@ OPTIONS=" \
           --tokenizer-type BertWordPieceLowerCase \
           --epochs 10 \
           --sample-rate 1.0 \
-          --batch-size 1 \
+          --batch-size 4 \
           --eval-batch-size 1 \
           --lr 2e-5 \
           --warmup 0.01 \
@@ -103,7 +114,7 @@ OPTIONS=" \
           --retriever-score-scaling \
           --update-retriever \
           --allow-trivial-doc \
-          --shard-size 32 \
+          --shard-size 16 \
           --initialize-t0-model-tokenizer-evidence \
           --t0-model-in-bf16 \
           --index-reload-interval 500 \
