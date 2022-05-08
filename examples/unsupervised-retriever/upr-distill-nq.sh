@@ -6,8 +6,8 @@ TRAIN_DATA="${DATA_DIR}/nq-train.csv"
 VALID_DATA="${DATA_DIR}/nq-dev.csv"
 TEST_DATA="${DATA_DIR}/nq-test.csv"
 
-QA_FILE_DEV="${BASE_DIR}/data/dpr/retriever/qas/nq-dev.csv"
-QA_FILE_TEST="${BASE_DIR}/data/dpr/retriever/qas/nq-test.csv"
+QA_FILE_DEV="${BASE_DIR}/data/qas/nq-dev.csv"
+QA_FILE_TEST="${BASE_DIR}/data/qas/nq-test.csv"
 
 EVIDENCE_DATA_PATH="${BASE_DIR}/data/dpr/wikipedia_split/psgs_w100.tsv"
 TOPK=32
@@ -15,7 +15,7 @@ TOPK=32
 RETRIEVER_CHKPT_PATH="${BASE_DIR}/checkpoints/mss-emdr2-retriever-base-steps82k"
 VOCAB_FILE="${BASE_DIR}/bert-vocab/bert-large-uncased-vocab.txt"
 
-CHECKPOINT_PATH="${BASE_DIR}/checkpoints/temp-xyz-wctx-bf16-indexer"
+CHECKPOINT_PATH="${BASE_DIR}/checkpoints/nq-mss-base-init"
 #rm -rf ${CHECKPOINT_PATH}
 
 mkdir -p ${BASE_DIR}"/embedding-path/upr-finetuning-embedding"
@@ -73,8 +73,8 @@ OPTIONS=" \
           --qa-file-dev ${QA_FILE_DEV} \
           --qa-file-test ${QA_FILE_TEST} \
           --evidence-data-path ${EVIDENCE_DATA_PATH} \
-          --indexed-evidence-bert-tokenized-data-path ${BASE_DIR}/data/evidence-wikipedia-indexed-mmap/bert/wikipedia-evidence_text_document \
-          --indexed-title-bert-tokenized-data-path ${BASE_DIR}/data/evidence-wikipedia-indexed-mmap/bert/wikipedia-evidence_title_document \
+          --indexed-evidence-bert-tokenized-data-path ${BASE_DIR}/data/evidence-wikipedia-indexed-mmap/wikipedia-evidence_text_document \
+          --indexed-title-bert-tokenized-data-path ${BASE_DIR}/data/evidence-wikipedia-indexed-mmap/wikipedia-evidence_title_document \
           --indexed-evidence-t0-tokenized-data-path ${BASE_DIR}/data/evidence-wikipedia-indexed-mmap/t0/wikipedia-evidence-t0_text_document \
           --indexed-title-t0-tokenized-data-path ${BASE_DIR}/data/evidence-wikipedia-indexed-mmap/t0/wikipedia-evidence-t0_title_document \
           --save-interval 500 \
