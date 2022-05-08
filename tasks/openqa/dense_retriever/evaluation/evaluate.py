@@ -106,12 +106,20 @@ class OpenRetrievalEvaluator(object):
         local_rank = args.local_rank
         rank = torch.distributed.get_rank()
         device_count = torch.cuda.device_count()
-        num_nodes = torch.distributed.get_world_size() // device_count
+        world_size = torch.distributed.get_world_size()
+
+        if world_size == 1:
+            num_nodes = 1
+        else:
+            num_nodes = world_size // device_count
         node_id = rank // device_count
 
         for node in range(num_nodes):
             start_rank = node * device_count
-            end_rank = (node + 1) * device_count
+            if world_size == 1:
+                end_rank = 1
+            else:
+                end_rank = (node + 1) * device_count
             ranks_list = list(range(start_rank, end_rank))
             node_group = torch.distributed.new_group(ranks=ranks_list)
 
@@ -231,7 +239,7 @@ class OpenRetrievalEvaluator(object):
 
 
 @torch.no_grad()
-def varsize_gather_nograd(x, group):
+def varsize_gather_nograd(x, group=None):
     """gather tensors of different sizes along the first dimension"""
 
     #determine max size
