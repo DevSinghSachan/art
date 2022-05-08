@@ -197,7 +197,7 @@ class OpenRetrievalEvaluator(object):
         # top_k_hits = [v / num_rows for v in top_k_hits]
 
         metrics = compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
-        mrr_at_10 = torch.FloatTensor(metrics['MRR @10']).cuda()
+        mrr_at_10 = torch.FloatTensor([metrics['MRR @10']]).cuda()
         torch.distributed.all_reduce(mrr_at_10, torch.distributed.ReduceOp.SUM)
         mrr_at_10 = mrr_at_10 / num_rows
 
