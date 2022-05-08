@@ -19,7 +19,7 @@ def select_valid_questions(args):
             qid, question_text = line.rstrip().split('\t')
 
             if int(qid) in qid_to_passage_id:
-                csvwriter.writerow([question_text, "dummy_answer"])
+                csvwriter.writerow([question_text, ["dummy_answer"]])
 
             if i % 100000 == 0:
                 print(f'Processed {i:,} docs and writing into file.')
