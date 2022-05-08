@@ -11,7 +11,7 @@ CHECKPOINT_PATH="$BASE_DIR/checkpoints/mss-emdr2-retriever-base-steps82k"
 
 DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${NPROC} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
 
-QA_FILE_DEV="${BASE_DIR}/data/dpr/retriever/qas/nq-dev.csv"
+QA_FILE_DEV="${BASE_DIR}/pyserini/collections/msmarco-passage/queries.dev.small.tsv"
 MSMARCO_DEV_REFERENCE_PATH="${BASE_DIR}/pyserini/collections/msmarco-passage/qrels.dev.small.tsv"
 
 CREATE_EVIDENCE_INDEXES="false"

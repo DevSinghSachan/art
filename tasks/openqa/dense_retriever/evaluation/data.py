@@ -27,7 +27,7 @@ def process_qa_batch(batch):
     query_mask = (batch['token_mask'] < 0.5).cuda()
     query_types = batch['token_types'].long().cuda()
     query_len = batch['seq_len'].long().cuda()
-    question_id = batch['reference']
+    question_id = batch['question_id']
     return query_tokens, query_mask, query_types, query_len, question_id
 
 
