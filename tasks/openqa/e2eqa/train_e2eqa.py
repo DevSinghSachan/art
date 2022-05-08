@@ -13,7 +13,7 @@ from megatron.training import setup_model_and_optimizer
 from megatron.training import train_step
 from megatron.training import training_log
 from megatron.utils import reduce_losses
-from megatron import get_t0_tokenizer, get_wikipedia_evidence
+from megatron import get_t0_tokenizer, get_msmarco_dev_reference
 from megatron.indexer_emdr2 import IndexBuilder
 from tasks.openqa.dense_retriever.evaluation.evaluate import OpenRetrievalEvaluator
 
@@ -208,13 +208,13 @@ def get_retrieval_score(mips_index=None, iteration_num=-1):
                                        key_list=['retriever/biencoder_model'],
                                        load_evidence_dataset=False,
                                        use_faiss=False)
-    evidence_id2text = get_wikipedia_evidence()
+    query2passage_list = get_msmarco_dev_reference()
 
     if args.qa_file_dev is not None:
         evaluator.evaluate(args.qa_file_dev,
                            "DEV",
                            mips_index=mips_index,
-                           evidence_id2text=evidence_id2text,
+                           evidence_id2text=query2passage_list,
                            iteration_num=iteration_num)
         torch.distributed.barrier()
 
@@ -222,7 +222,7 @@ def get_retrieval_score(mips_index=None, iteration_num=-1):
         evaluator.evaluate(args.qa_file_test,
                            "TEST",
                            mips_index=mips_index,
-                           evidence_id2text=evidence_id2text,
+                           evidence_id2text=query2passage_list,
                            iteration_num=iteration_num)
         torch.distributed.barrier()
 

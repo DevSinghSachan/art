@@ -15,7 +15,7 @@
 
 """Wikipedia dataset from DPR code for ORQA."""
 
-import csv
+import re
 import random
 import time
 from abc import ABC
@@ -32,9 +32,9 @@ def get_open_retrieval_wiki_dataset():
     args = get_args()
     tokenizer = get_tokenizer()
 
-    dataset = OpenRetrievalEvidenceDataset('2018 Wikipedia from DPR codebase',
-                                           'evidence',
-                                           args.evidence_data_path,
+    dataset = OpenRetrievalEvidenceDataset('MSMARCO passage reference file',
+                                           'query to passage ids',
+                                           args.path_to_msmarco_dev_reference,
                                            tokenizer,
                                            args.seq_length_ret)
     return dataset
@@ -138,7 +138,7 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
                                                              self.dataset_name))
         # Process the files.
         print_rank_0(datapath)
-        self.samples, self.id2text = self.process_samples_from_single_path(datapath)
+        self.query2passage_list = self.load_msmarco_dev_reference(datapath)
 
         args = get_args()
         if args.sample_rate < 1:  # subsample
@@ -163,35 +163,33 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
         return sample
 
     @staticmethod
-    def process_samples_from_single_path(filename):
-        start_time = time.time()
+    def load_msmarco_dev_reference(datapath):
+        """Load Reference reference relevant passages
+        Args:path_to_reference (str): path to a file to load.
+        Returns:qids_to_relevant_passageids (dict): dictionary mapping from query_id (int) to relevant passages (list of ints).
+        """
+        print_rank_0(' > Processing {} ...'.format(datapath))
 
-        print_rank_0(' > Processing {} ...'.format(filename))
-        total = 0
+        with open(datapath, 'r') as f:
+            qids_to_relevant_passageids = load_reference_from_stream(f)
+        return qids_to_relevant_passageids
 
-        rows = []
-        id2text = {}
 
-        with open(filename) as tsvfile:
-            reader = csv.reader(tsvfile, delimiter='\t')
-            next(reader, None)  # skip the headers
-            for row in reader:
-                # file format: doc_id, doc_text, title
-                doc_id = int(row[0])
-                text = row[1]
-                title = row[2]
-
-                rows.append({'doc_id': doc_id,
-                             'text': text,
-                             'title': title})
-
-                assert doc_id not in id2text
-                id2text[doc_id] = (text, title)
-
-                total += 1
-                if total % 1000000 == 0:
-                    print_rank_0('  > processed {} rows so far ...'.format(total))
-
-        print_rank_0(' >> processed {} samples.'.format(len(rows)))
-
-        return rows, id2text
+def load_reference_from_stream(f):
+    """Load Reference reference relevant passages
+    Args:f (stream): stream to load.
+    Returns:qids_to_relevant_passageids (dict): dictionary mapping from query_id (int) to relevant passages (list of ints).
+    """
+    qids_to_relevant_passageids = {}
+    for l in f:
+        try:
+            l = re.split('[\t\s]', l.strip())
+            qid = int(l[0])
+            if qid in qids_to_relevant_passageids:
+                pass
+            else:
+                qids_to_relevant_passageids[qid] = []
+            qids_to_relevant_passageids[qid].append(int(l[2]))
+        except:
+            raise IOError('\"%s\" is not valid format' % l)
+    return qids_to_relevant_passageids

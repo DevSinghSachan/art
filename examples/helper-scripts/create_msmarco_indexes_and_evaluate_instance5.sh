@@ -12,9 +12,10 @@ CHECKPOINT_PATH="$BASE_DIR/checkpoints/mss-emdr2-retriever-base-steps82k"
 DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${NPROC} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
 
 QA_FILE_DEV="${BASE_DIR}/data/dpr/retriever/qas/nq-dev.csv"
+MSMARCO_DEV_REFERENCE_PATH="${BASE_DIR}/pyserini/collections/msmarco-passage/qrels.dev.small.tsv"
 
-CREATE_EVIDENCE_INDEXES="true"
-EVALUATE_RETRIEVER_RECALL="false"
+CREATE_EVIDENCE_INDEXES="false"
+EVALUATE_RETRIEVER_RECALL="true"
 
 OPTIONS="--num-layers 12 \
     --hidden-size 768 \
@@ -57,12 +58,12 @@ OPTIONS="--num-layers 12 \
     --seq-length-ret 256 \
     --vocab-file ${VOCAB_FILE} \
     --qa-file-dev ${QA_FILE_DEV} \
-    --qa-file-test ${QA_FILE_TEST} \
     --num-workers 2 \
     --faiss-use-gpu \
     --report-topk-accuracies 1 5 10 20 50 100 \
     --fp16 \
     --topk-retrievals 100 \
+    --path-to-msmarco-dev-reference ${MSMARCO_DEV_REFERENCE_PATH} \
     --max-training-rank ${NPROC}"
 
 

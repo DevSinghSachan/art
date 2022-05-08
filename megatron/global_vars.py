@@ -18,7 +18,7 @@
 import os
 import sys
 import time
-import csv
+import re
 
 import torch
 
@@ -32,7 +32,7 @@ _GLOBAL_TOKENIZER = None
 _GLOBAL_T5_TOKENIZER = None
 _GLOBAL_T0_TOKENIZER = None
 _GLOBAL_T0_MODEL = None
-_GLOBAL_WIKIPEDIA_EVIDENCE = None
+_GLOBAL_MSMARCO_DEV_REFERENCE = None
 _GLOBAL_TENSORBOARD_WRITER = None
 _GLOBAL_ADLR_AUTORESUME = None
 _GLOBAL_TIMERS = None
@@ -66,10 +66,10 @@ def get_t0_model():
     _ensure_var_is_initialized(_GLOBAL_T0_MODEL, 'T0-model')
     return _GLOBAL_T0_MODEL
 
-def get_wikipedia_evidence():
-    """Return T0 model."""
-    _ensure_var_is_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
-    return _GLOBAL_WIKIPEDIA_EVIDENCE
+def get_msmarco_dev_reference():
+    """Return MSMARCO DEV REFERENCE dictionary."""
+    _ensure_var_is_initialized(_GLOBAL_MSMARCO_DEV_REFERENCE, 'MSMARCO_DEV_REFERENCE')
+    return _GLOBAL_MSMARCO_DEV_REFERENCE
 
 
 def get_tensorboard_writer():
@@ -102,6 +102,7 @@ def set_global_variables(extra_args_provider=None, args_defaults={},
     if args.initialize_t0_model_tokenizer_evidence:
         _ = _build_t0_tokenizer(args)
         _ = _build_t0_model(args)
+        _ = _load_msmarco_dev_reference(args)
 
     _set_tensorboard_writer(args)
     _set_adlr_autoresume(args)
@@ -136,12 +137,12 @@ def _build_t5_tokenizer(args):
     return _GLOBAL_T5_TOKENIZER
 
 
-# def _load_wikipedia_evidence(args):
-#     """Load the DPR wikipedia evidence file"""
-#     global _GLOBAL_WIKIPEDIA_EVIDENCE
-#     _ensure_var_is_not_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
-#     _GLOBAL_WIKIPEDIA_EVIDENCE = process_samples_from_single_path(args)
-#     return _GLOBAL_WIKIPEDIA_EVIDENCE
+def _load_msmarco_dev_reference(args):
+    """Load the DPR wikipedia evidence file"""
+    global _GLOBAL_MSMARCO_DEV_REFERENCE
+    _ensure_var_is_not_initialized(_GLOBAL_MSMARCO_DEV_REFERENCE, 'MSMARCO DEV REFERENCE')
+    _GLOBAL_MSMARCO_DEV_REFERENCE = load_msmarco_dev_reference(args)
+    return _GLOBAL_MSMARCO_DEV_REFERENCE
 
 
 def _build_t0_tokenizer(args):
@@ -307,35 +308,34 @@ class Timers:
             print(string, flush=True)
 
 
-def process_samples_from_single_path(args):
+def load_msmarco_dev_reference(args):
 
     if args.local_rank == 0:
-        print(' > Processing {} ...'.format(args.evidence_data_path))
-    total = 0
-    id2text = []
+        print(' > Processing {} ...'.format(args.path_to_msmarco_dev_reference))
+    """Load Reference reference relevant passages
+        Args:path_to_reference (str): path to a file to load.
+        Returns:qids_to_relevant_passageids (dict): dictionary mapping from query_id (int) to relevant passages (list of ints). 
+        """
+    with open(args.path_to_msmarco_dev_reference, 'r') as f:
+        qids_to_relevant_passageids = load_reference_from_stream(f)
+    return qids_to_relevant_passageids
 
-    with open(args.evidence_data_path) as tsvfile:
-        reader = csv.reader(tsvfile, delimiter='\t')
-        next(reader, None)  # skip the headers
 
-        # Fill some random text tuple in the first index
-        id2text.append(("text", "title"))
-
-        for row in reader:
-            # file format: doc_id, doc_text, title
-            doc_id = int(row[0])
-            text = row[1]
-            title = row[2]
-
-            # doc_id is specified by the index of the list
-            id2text.append((text, title))
-
-            total += 1
-            if total % 1000000 == 0:
-                if args.local_rank == 0:
-                    print('  > processed {} rows so far ...'.format(total))
-
-    if args.local_rank == 0:
-        print(' >> processed {} samples.'.format(total))
-
-    return id2text
+def load_reference_from_stream(f):
+    """Load Reference reference relevant passages
+    Args:f (stream): stream to load.
+    Returns:qids_to_relevant_passageids (dict): dictionary mapping from query_id (int) to relevant passages (list of ints).
+    """
+    qids_to_relevant_passageids = {}
+    for l in f:
+        try:
+            l = re.split('[\t\s]', l.strip())
+            qid = int(l[0])
+            if qid in qids_to_relevant_passageids:
+                pass
+            else:
+                qids_to_relevant_passageids[qid] = []
+            qids_to_relevant_passageids[qid].append(int(l[2]))
+        except:
+            raise IOError('\"%s\" is not valid format' % l)
+    return qids_to_relevant_passageids

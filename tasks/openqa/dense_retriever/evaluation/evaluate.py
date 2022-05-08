@@ -60,7 +60,7 @@ class OpenRetrievalEvaluator(object):
         tokenizer = get_tokenizer()
         query_vectors = []
         query_list = []
-        reference_list = []
+        question_id_list = []
 
         while True:
             try:
@@ -70,7 +70,7 @@ class OpenRetrievalEvaluator(object):
 
             # batch also has query_tokens and query_pad_data
             query_tokens, query_mask, query_types, \
-            query_len, reference = process_qa_batch(batch)
+            query_len, question_id = process_qa_batch(batch)
 
             unwrapped_model = self.model
             while not hasattr(unwrapped_model, 'embed_text'):
@@ -85,18 +85,18 @@ class OpenRetrievalEvaluator(object):
             for i in range(len(query_tokens)):
                 query_list.append(tokenizer.decode(query_tokens[i].tolist()[:query_len[i]]))
 
-            reference_list.extend(reference)
+            question_id_list.extend(question_id)
             query_vectors.extend(query_logits.split(1, dim=0))
             if len(query_vectors) % 100 == 0:
                 print_rank_0('Encoded queries {}'.format(len(query_vectors) * mpu.get_data_parallel_world_size()))
 
         query_tensor = torch.cat(query_vectors, dim=0)
-        return query_list, query_tensor, reference_list
+        return query_list, query_tensor, question_id_list
 
-    def evaluate(self, qa_file, split, mips_index=None, evidence_id2text=None, iteration_num=-1):
+    def evaluate(self, qa_file, split, mips_index=None, query2passage_list=None, iteration_num=-1):
         args = get_args()
         eval_dataset = get_qa_dataset(qa_file, split)
-        query_list, query_tensor, reference_list = self.generate_query_vectors(eval_dataset)
+        query_list, query_tensor, question_id_list = self.generate_query_vectors(eval_dataset)
 
         if mips_index is not None:
             mips_index_cls = mips_index
@@ -162,63 +162,69 @@ class OpenRetrievalEvaluator(object):
 
         topk_sim_scores = distance #/ math.sqrt(args.hidden_size)
 
-        top_ids_and_scores = []
-        for darray, topkarray in zip(topk_sim_scores, topkindex):
-            top_ids_and_scores.append((topkarray.tolist(), darray.tolist()))
+        qids_to_ranked_candidate_passages = {}
+
+        for qid, topkarray in zip(question_id_list, topkindex):
+            qids_to_ranked_candidate_passages[qid] = topkarray.tolist()
 
         if self.evidence_dataset is None:
-            assert evidence_id2text is not None
-            passages = evidence_id2text
+            assert query2passage_list is not None
+            qids_to_relevant_passageids = query2passage_list
         else:
-            passages = self.evidence_dataset.id2text
+            qids_to_relevant_passageids = self.evidence_dataset.query2passage_list
 
-        match_stats = calculate_matches(passages,
-                                        reference_list,
-                                        top_ids_and_scores,
-                                        workers_num=args.num_workers,
-                                        match_type=args.match)
+        # match_stats = calculate_matches(passages,
+        #                                 question_id_list,
+        #                                 top_ids_and_scores,
+        #                                 workers_num=args.num_workers,
+        #                                 match_type=args.match)
+        #
+        # doc_hits = match_stats.questions_doc_hits
+        # top_k_hits = torch.FloatTensor(match_stats.top_k_hits).cuda()
+        #
+        # # Accumulating and summing top-k hits scores from all the ranks
+        # torch.distributed.all_reduce(top_k_hits, torch.distributed.ReduceOp.SUM)
+        #
+        # top_k_hits = [v / num_rows for v in top_k_hits]
 
-        doc_hits = match_stats.questions_doc_hits
-        top_k_hits = torch.FloatTensor(match_stats.top_k_hits).cuda()
+        metrics = compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
+        mrr_at_10 = torch.FloatTensor(metrics['MRR @10']).cuda()
+        torch.distributed.all_reduce(mrr_at_10, torch.distributed.ReduceOp.SUM)
+        mrr_at_10 = mrr_at_10 / num_rows
 
-        # Accumulating and summing top-k hits scores from all the ranks
-        torch.distributed.all_reduce(top_k_hits, torch.distributed.ReduceOp.SUM)
-
-        top_k_hits = [v / num_rows for v in top_k_hits]
-
-        print_str = "{} SET RESULTS\tstep: {}\t".format(split, iteration_num)
-        for i in args.report_topk_accuracies:
-            print_str += "top-{}: {:.2f}\t".format(i, top_k_hits[i-1] * 100)
-
+        print_str = "{} SET RESULTS\tstep: {}\tMRR@10: {}".format(split, iteration_num, mrr_at_10)
         print_rank_0(print_str)
 
-        if args.save_topk_outputs_path is not None:
-            all_data = []
-            for i, (q, d, r) in enumerate(zip(query_list, doc_hits, reference_list)):
-                ctx_list = []
-                for j in range(args.topk_retrievals):
+        # for i in args.report_topk_accuracies:
+        #     print_str += "top-{}: {:.2f}\t".format(i, top_k_hits[i-1] * 100)
 
-                    ctx = {"id": top_ids_and_scores[i][0][j],
-                           "score": top_ids_and_scores[i][1][j],
-                           "has_answer": d[j]}
-                    ctx_list.append(ctx)
-                item = {"question": q,
-                        "answers": r,
-                        "ctxs": ctx_list}
-                all_data.append(item)
-
-            temp_dir_name = os.path.join(args.save_topk_outputs_path,
-                                         "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
-            save_shard(all_data, temp_dir_name)
-            del all_data
-            torch.distributed.barrier()
-
-            if mpu.get_data_parallel_rank() == 0:
-                file_name = os.path.splitext(os.path.basename(qa_file))[0]
-                all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
-                # make sure that every single piece of data was embedded
-                assert len(all_data) == len(eval_dataset)
-                del all_data
+        # if args.save_topk_outputs_path is not None:
+        #     all_data = []
+        #     for i, (q, d, r) in enumerate(zip(query_list, doc_hits, reference_list)):
+        #         ctx_list = []
+        #         for j in range(args.topk_retrievals):
+        #
+        #             ctx = {"id": top_ids_and_scores[i][0][j],
+        #                    "score": top_ids_and_scores[i][1][j],
+        #                    "has_answer": d[j]}
+        #             ctx_list.append(ctx)
+        #         item = {"question": q,
+        #                 "answers": r,
+        #                 "ctxs": ctx_list}
+        #         all_data.append(item)
+        #
+        #     temp_dir_name = os.path.join(args.save_topk_outputs_path,
+        #                                  "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
+        #     save_shard(all_data, temp_dir_name)
+        #     del all_data
+        #     torch.distributed.barrier()
+        #
+        #     if mpu.get_data_parallel_rank() == 0:
+        #         file_name = os.path.splitext(os.path.basename(qa_file))[0]
+        #         all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
+        #         # make sure that every single piece of data was embedded
+        #         assert len(all_data) == len(eval_dataset)
+        #         del all_data
 
         torch.distributed.barrier()
         return
@@ -291,3 +297,63 @@ def merge_shards_and_save(output_dir_path, temp_dir_name, file_name):
     shutil.rmtree(temp_dir_name, ignore_errors=True)
 
     return all_data
+
+
+def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages):
+    """Compute MRR metric
+    Args:
+    p_qids_to_relevant_passageids (dict): dictionary of query-passage mapping
+        Dict as read in with load_reference or load_reference_from_stream
+    p_qids_to_ranked_candidate_passages (dict): dictionary of query-passage candidates
+    Returns:
+        dict: dictionary of metrics {'MRR': <MRR Score>}
+    """
+    MaxMRRRank = 10
+    all_scores = {}
+    MRR = 0
+    qids_with_relevant_passages = 0
+    ranking = []
+    for qid in qids_to_ranked_candidate_passages:
+        if qid in qids_to_relevant_passageids:
+            ranking.append(0)
+            target_pid = qids_to_relevant_passageids[qid]
+            candidate_pid = qids_to_ranked_candidate_passages[qid]
+            for i in range(0, MaxMRRRank):
+                if candidate_pid[i] in target_pid:
+                    MRR += 1 / (i + 1)
+                    ranking.pop()
+                    ranking.append(i + 1)
+                    break
+    if len(ranking) == 0:
+        raise IOError("No matching QIDs found. Are you sure you are scoring the evaluation set?")
+
+    # MRR = MRR / len(qids_to_relevant_passageids)
+    all_scores['MRR @10'] = MRR
+    all_scores['QueriesRanked'] = len(qids_to_ranked_candidate_passages)
+    return all_scores
+
+
+def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_checks=True):
+    """Compute MRR metric
+    Args:
+    p_path_to_reference_file (str): path to reference file.
+        Reference file should contain lines in the following format:
+            QUERYID\tPASSAGEID
+            Where PASSAGEID is a relevant passage for a query. Note QUERYID can repeat on different lines with different PASSAGEIDs
+    p_path_to_candidate_file (str): path to candidate file.
+        Candidate file sould contain lines in the following format:
+            QUERYID\tPASSAGEID1\tRank
+            If a user wishes to use the TREC format please run the script with a -t flag at the end. If this flag is used the expected format is
+            QUERYID\tITER\tDOCNO\tRANK\tSIM\tRUNID
+            Where the values are separated by tabs and ranked in order of relevance
+    Returns:
+        dict: dictionary of metrics {'MRR': <MRR Score>}
+    """
+
+    qids_to_relevant_passageids = load_reference(path_to_reference)
+    qids_to_ranked_candidate_passages = load_candidate(path_to_candidate)
+    if perform_checks:
+        allowed, message = quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
+        if message != '': print(message)
+
+    return compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)

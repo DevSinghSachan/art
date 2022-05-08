@@ -517,6 +517,9 @@ def _add_upr_args(parser):
     group.add_argument('--evidence-data-path', type=str, default=None,
                        help='Path to Wikipedia Evidence from DPR paper')
 
+    group.add_argument('--path-to-msmarco-dev-reference', type=str, default=None,
+                       help='Path to MSMARCO dev reference file')
+
     group.add_argument('--indexed-evidence-bert-tokenized-data-path', type=str,
                        default="/mnt/disks/project/data/evidence-wikipedia-indexed-mmap/wikipedia-evidence_text_document",
                        help='Path to pre-tokenized and indexed Wikipedia evidence from DPR paper')

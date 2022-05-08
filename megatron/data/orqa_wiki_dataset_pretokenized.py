@@ -12,7 +12,7 @@ def get_open_retrieval_wiki_dataset():
     args = get_args()
     tokenizer = get_tokenizer()
 
-    dataset = EvidenceDatasetPreTokenized('2018 Wikipedia from DPR codebase',
+    dataset = EvidenceDatasetPreTokenized('MSMARCO Passage Collection',
                                           'evidence',
                                           tokenizer,
                                           args.seq_length_ret)

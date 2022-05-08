@@ -19,7 +19,7 @@ from .global_vars import get_tokenizer
 from .global_vars import get_t5_tokenizer
 from .global_vars import get_t0_tokenizer
 from .global_vars import get_t0_model
-from .global_vars import get_wikipedia_evidence
+from .global_vars import get_msmarco_dev_reference
 from .global_vars import get_tensorboard_writer
 from .global_vars import get_adlr_autoresume
 from .global_vars import get_timers

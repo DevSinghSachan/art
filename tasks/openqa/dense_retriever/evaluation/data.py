@@ -27,8 +27,8 @@ def process_qa_batch(batch):
     query_mask = (batch['token_mask'] < 0.5).cuda()
     query_types = batch['token_types'].long().cuda()
     query_len = batch['seq_len'].long().cuda()
-    reference = batch['reference']
-    return query_tokens, query_mask, query_types, query_len, reference
+    question_id = batch['reference']
+    return query_tokens, query_mask, query_types, query_len, question_id
 
 
 class CustomDataLoader(DataLoader):
@@ -136,7 +136,7 @@ def build_tokens_types_paddings_from_ids(src_ids, max_seq_length, cls_id, sep_id
     return enc_ids, tokentypes_enc, num_tokens_enc
 
 
-def build_sample(token_ids, token_types, num_tokens, reference):
+def build_sample(token_ids, token_types, num_tokens, question_id):
     """Convert to numpy and return a sample consumed by the batch producer."""
 
     token_ids = np.array(token_ids, dtype=np.int64)
@@ -148,7 +148,7 @@ def build_sample(token_ids, token_types, num_tokens, reference):
         'token_mask': token_mask,
         'token_types': token_types,
         'seq_len': num_tokens,
-        'reference': reference
+        'question_id': question_id
     })
     return sample
 
@@ -181,7 +181,7 @@ class QADataset(ABC, Dataset):
         sample = build_sample(ques_tokens,
                               tokentypes_enc,
                               num_tokens_ques,
-                              raw_sample['answers'])
+                              raw_sample['question_id'])
         return sample
 
     @staticmethod
@@ -190,13 +190,15 @@ class QADataset(ABC, Dataset):
         samples = []
         total = 0
 
+        # doc_id, doc_text = line.rstrip().split('\t')
+
         with open(filename, 'r') as ifile:
             reader = csv.reader(ifile, delimiter='\t')
             for row in reader:
-                question = row[0]
-                answers = eval(row[1])
+                question_id = row[0]
+                question_text = row[1]
 
-                sample = {'question': question, 'answers': answers}
+                sample = {'question_id': question_id, 'question': question_text}
                 total += 1
                 samples.append(sample)
 
