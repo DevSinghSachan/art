@@ -8,7 +8,6 @@ from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.checkpointing import load_dualencoder_checkpoint
 from megatron.data.orqa_wiki_dataset import get_open_retrieval_wiki_dataset
 from tasks.openqa.dense_retriever.evaluation.data import get_qa_dataset, get_one_epoch_qa_dataloader, process_qa_batch
-from tasks.openqa.dense_retriever.evaluation.qa_validation import calculate_matches
 from megatron.data.emdr2_index import OpenRetreivalDataStore, FaissMIPSIndex
 
 
@@ -182,30 +181,14 @@ class OpenRetrievalEvaluator(object):
         else:
             qids_to_relevant_passageids = self.evidence_dataset.query2passage_list
 
-        # match_stats = calculate_matches(passages,
-        #                                 question_id_list,
-        #                                 top_ids_and_scores,
-        #                                 workers_num=args.num_workers,
-        #                                 match_type=args.match)
-        #
-        # doc_hits = match_stats.questions_doc_hits
-        # top_k_hits = torch.FloatTensor(match_stats.top_k_hits).cuda()
-        #
-        # # Accumulating and summing top-k hits scores from all the ranks
-        # torch.distributed.all_reduce(top_k_hits, torch.distributed.ReduceOp.SUM)
-        #
-        # top_k_hits = [v / num_rows for v in top_k_hits]
 
         metrics = compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
         mrr_at_10 = torch.FloatTensor([metrics['MRR @10']]).cuda()
         torch.distributed.all_reduce(mrr_at_10, torch.distributed.ReduceOp.SUM)
         mrr_at_10 = mrr_at_10 / num_rows
 
-        print_str = "{} SET RESULTS\tstep: {}\tMRR@10: {}".format(split, iteration_num, mrr_at_10)
+        print_str = "{} SET RESULTS\tstep: {}\tMRR@10: {}".format(split, iteration_num, mrr_at_10.item() * 100)
         print_rank_0(print_str)
-
-        # for i in args.report_topk_accuracies:
-        #     print_str += "top-{}: {:.2f}\t".format(i, top_k_hits[i-1] * 100)
 
         # if args.save_topk_outputs_path is not None:
         #     all_data = []
@@ -340,29 +323,3 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
     all_scores['MRR @10'] = MRR
     all_scores['QueriesRanked'] = len(qids_to_ranked_candidate_passages)
     return all_scores
-
-
-def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_checks=True):
-    """Compute MRR metric
-    Args:
-    p_path_to_reference_file (str): path to reference file.
-        Reference file should contain lines in the following format:
-            QUERYID\tPASSAGEID
-            Where PASSAGEID is a relevant passage for a query. Note QUERYID can repeat on different lines with different PASSAGEIDs
-    p_path_to_candidate_file (str): path to candidate file.
-        Candidate file sould contain lines in the following format:
-            QUERYID\tPASSAGEID1\tRank
-            If a user wishes to use the TREC format please run the script with a -t flag at the end. If this flag is used the expected format is
-            QUERYID\tITER\tDOCNO\tRANK\tSIM\tRUNID
-            Where the values are separated by tabs and ranked in order of relevance
-    Returns:
-        dict: dictionary of metrics {'MRR': <MRR Score>}
-    """
-
-    qids_to_relevant_passageids = load_reference(path_to_reference)
-    qids_to_ranked_candidate_passages = load_candidate(path_to_candidate)
-    if perform_checks:
-        allowed, message = quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
-        if message != '': print(message)
-
-    return compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
