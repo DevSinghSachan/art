@@ -239,13 +239,13 @@ def postprocess(query_uid, topk_evidence_data):
 
     for qid, (topkids, text_list, text_list_t0) in zip(query_uid, topk_evidence_data):
         k = 0
-        for eid, (context_ids, title_ids), (context_ids_t0, title_ids_t0) in zip(topkids, text_list, text_list_t0):
+        for eid, context_ids, context_ids_t0 in zip(topkids, text_list, text_list_t0):
             t0_context_title_ids = []
             # We should ignore the evidence from which query originates
             if qid != eid and k < args.topk_retrievals:
                 k += 1
 
-                bert_title_text_ids = [bert_tokenizer.cls] + title_ids + [bert_tokenizer.sep] + context_ids
+                bert_title_text_ids = [bert_tokenizer.cls] + context_ids
                 to_be_added_len = 1
                 if len(bert_title_text_ids) + to_be_added_len >= MAX_SEQUENCE_LEN:
                     truncate_len = len(bert_title_text_ids) + to_be_added_len - MAX_SEQUENCE_LEN
@@ -256,7 +256,6 @@ def postprocess(query_uid, topk_evidence_data):
 
                 # Original Input Style: Passage: <title> <passage> . Can you please write a question?
                 t0_context_title_ids.extend(verbalizer_head_ids)
-                t0_context_title_ids.extend(title_ids_t0)
                 t0_context_title_ids.extend(context_ids_t0)
 
                 # Truncating the sequence length if larger than 512
@@ -375,11 +374,11 @@ class PreComputedEvidenceDocsRetriever(object):
             for idx in topkarray:
                 doctext_ids = self.passages_map[idx].tolist()
                 # title_ids = self.title_map[idx-1].tolist()
-                text_list_bert_tok.append((doctext_ids,))
+                text_list_bert_tok.append(doctext_ids)
 
                 doctext_ids_t0 = self.passages_map_t0[idx].tolist()
                 # title_ids_t0 = self.title_map_t0[idx - 1].tolist()
-                text_list_t0_tok.append((doctext_ids_t0,))
+                text_list_t0_tok.append(doctext_ids_t0)
             topk_data.append((topkarray, text_list_bert_tok, text_list_t0_tok))
 
         return topk_data, distance
