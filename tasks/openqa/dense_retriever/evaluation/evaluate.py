@@ -173,6 +173,7 @@ class OpenRetrievalEvaluator(object):
         qids_to_ranked_candidate_passages = {}
 
         for qid, topkarray in zip(question_id_list, topkindex):
+            qid = int(qid)
             qids_to_ranked_candidate_passages[qid] = topkarray.tolist()
 
         if self.evidence_dataset is None:
