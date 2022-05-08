@@ -140,12 +140,13 @@ class OpenRetrievalEvidenceDataset(ABC, Dataset):
         print_rank_0(datapath)
         self.query2passage_list = self.load_msmarco_dev_reference(datapath)
 
-        args = get_args()
-        if args.sample_rate < 1:  # subsample
-            k = int(len(self.samples) * args.sample_rate)
-            self.samples = random.sample(self.samples, k)
-
-        print_rank_0('  >> total number of samples: {}'.format(len(self.samples)))
+        # args = get_args()
+        # if args.sample_rate < 1:  # subsample
+        #     k = int(len(self.samples) * args.sample_rate)
+        #     self.samples = random.sample(self.samples, k)
+        #
+        # print_rank_0('  >> total number of samples: {}'.format(len(self.samples)))
+        self.samples = None
 
     def __len__(self):
         return len(self.samples)
