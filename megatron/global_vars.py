@@ -102,7 +102,6 @@ def set_global_variables(extra_args_provider=None, args_defaults={},
     if args.initialize_t0_model_tokenizer_evidence:
         _ = _build_t0_tokenizer(args)
         _ = _build_t0_model(args)
-        _ = _load_wikipedia_evidence(args)
 
     _set_tensorboard_writer(args)
     _set_adlr_autoresume(args)
@@ -137,12 +136,12 @@ def _build_t5_tokenizer(args):
     return _GLOBAL_T5_TOKENIZER
 
 
-def _load_wikipedia_evidence(args):
-    """Load the DPR wikipedia evidence file"""
-    global _GLOBAL_WIKIPEDIA_EVIDENCE
-    _ensure_var_is_not_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
-    _GLOBAL_WIKIPEDIA_EVIDENCE = process_samples_from_single_path(args)
-    return _GLOBAL_WIKIPEDIA_EVIDENCE
+# def _load_wikipedia_evidence(args):
+#     """Load the DPR wikipedia evidence file"""
+#     global _GLOBAL_WIKIPEDIA_EVIDENCE
+#     _ensure_var_is_not_initialized(_GLOBAL_WIKIPEDIA_EVIDENCE, 'wikipedia-evidence-from-DPR-paper')
+#     _GLOBAL_WIKIPEDIA_EVIDENCE = process_samples_from_single_path(args)
+#     return _GLOBAL_WIKIPEDIA_EVIDENCE
 
 
 def _build_t0_tokenizer(args):
