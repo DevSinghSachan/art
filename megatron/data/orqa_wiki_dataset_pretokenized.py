@@ -84,9 +84,6 @@ class EvidenceDatasetPreTokenized(ABC, Dataset):
         self.passages_map = make_indexed_dataset(args.indexed_evidence_bert_tokenized_data_path,
                                                  impl=args.data_impl,
                                                  skip_warmup=(not args.mmap_warmup))
-        self.title_map = make_indexed_dataset(args.indexed_title_bert_tokenized_data_path,
-                                              impl=args.data_impl,
-                                              skip_warmup=(not args.mmap_warmup))
         print_rank_0('  >> total number of passages: {}'.format(len(self.passages_map)))
 
     def __len__(self):
@@ -95,9 +92,9 @@ class EvidenceDatasetPreTokenized(ABC, Dataset):
     def __getitem__(self, idx):
         # These indexed datasets follow zero indexing
         text_ids = self.passages_map[idx].tolist()
-        title_ids = self.title_map[idx].tolist()
+        # title_ids = self.title_map[idx].tolist()
 
-        title_text_ids = [self.tokenizer.cls] + title_ids + [self.tokenizer.sep] + text_ids
+        title_text_ids = [self.tokenizer.cls] + text_ids
         to_be_added_len = 1
         if len(title_text_ids) + to_be_added_len >= self.max_seq_length:
             truncate_len = len(title_text_ids) + to_be_added_len - self.max_seq_length
@@ -105,8 +102,8 @@ class EvidenceDatasetPreTokenized(ABC, Dataset):
 
         title_text_ids.extend([self.tokenizer.sep])
 
-        # idx + 1 is needed because in DPR Wikipedia passages the indexing starts from 1 and not 0.
-        sample = {"row_id": idx + 1,
+        # idx is needed because in MSMARCO passage collection, the indexing starts from 0 and not 1.
+        sample = {"row_id": idx, # idx + 1,
                   "title_text_ids": title_text_ids
                   }
 

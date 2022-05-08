@@ -315,17 +315,9 @@ class PreComputedEvidenceDocsRetriever(object):
                                                  impl=args.data_impl,
                                                  skip_warmup=(not args.mmap_warmup))
 
-        self.title_map = make_indexed_dataset(args.indexed_title_bert_tokenized_data_path,
-                                              impl=args.data_impl,
-                                              skip_warmup=(not args.mmap_warmup))
-
         self.passages_map_t0 = make_indexed_dataset(args.indexed_evidence_t0_tokenized_data_path,
                                                     impl=args.data_impl,
                                                     skip_warmup=(not args.mmap_warmup))
-
-        self.title_map_t0 = make_indexed_dataset(args.indexed_title_t0_tokenized_data_path,
-                                                 impl=args.data_impl,
-                                                 skip_warmup=(not args.mmap_warmup))
 
     def get_evidence_embedding(self, path):
         self.evidence_embedder_obj = OpenRetreivalDataStore(path,
@@ -381,13 +373,13 @@ class PreComputedEvidenceDocsRetriever(object):
             text_list_bert_tok = []
             text_list_t0_tok = []
             for idx in topkarray:
-                doctext_ids = self.passages_map[idx-1].tolist()
-                title_ids = self.title_map[idx-1].tolist()
-                text_list_bert_tok.append((doctext_ids, title_ids))
+                doctext_ids = self.passages_map[idx].tolist()
+                # title_ids = self.title_map[idx-1].tolist()
+                text_list_bert_tok.append((doctext_ids,))
 
-                doctext_ids_t0 = self.passages_map_t0[idx - 1].tolist()
-                title_ids_t0 = self.title_map_t0[idx - 1].tolist()
-                text_list_t0_tok.append((doctext_ids_t0, title_ids_t0))
+                doctext_ids_t0 = self.passages_map_t0[idx].tolist()
+                # title_ids_t0 = self.title_map_t0[idx - 1].tolist()
+                text_list_t0_tok.append((doctext_ids_t0,))
             topk_data.append((topkarray, text_list_bert_tok, text_list_t0_tok))
 
         return topk_data, distance
