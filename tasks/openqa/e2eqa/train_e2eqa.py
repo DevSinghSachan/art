@@ -214,7 +214,7 @@ def get_retrieval_score(mips_index=None, iteration_num=-1):
         evaluator.evaluate(args.qa_file_dev,
                            "DEV",
                            mips_index=mips_index,
-                           evidence_id2text=query2passage_list,
+                           query2passage_list=query2passage_list,
                            iteration_num=iteration_num)
         torch.distributed.barrier()
 
@@ -222,7 +222,7 @@ def get_retrieval_score(mips_index=None, iteration_num=-1):
         evaluator.evaluate(args.qa_file_test,
                            "TEST",
                            mips_index=mips_index,
-                           evidence_id2text=query2passage_list,
+                           query2passage_list=query2passage_list,
                            iteration_num=iteration_num)
         torch.distributed.barrier()
 
