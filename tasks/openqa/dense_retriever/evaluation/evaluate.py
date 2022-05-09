@@ -190,33 +190,26 @@ class OpenRetrievalEvaluator(object):
         print_str = "{} SET RESULTS\tstep: {}\tMRR@10: {}".format(split, iteration_num, mrr_at_10.item() * 100)
         print_rank_0(print_str)
 
-        # if args.save_topk_outputs_path is not None:
-        #     all_data = []
-        #     for i, (q, d, r) in enumerate(zip(query_list, doc_hits, reference_list)):
-        #         ctx_list = []
-        #         for j in range(args.topk_retrievals):
-        #
-        #             ctx = {"id": top_ids_and_scores[i][0][j],
-        #                    "score": top_ids_and_scores[i][1][j],
-        #                    "has_answer": d[j]}
-        #             ctx_list.append(ctx)
-        #         item = {"question": q,
-        #                 "answers": r,
-        #                 "ctxs": ctx_list}
-        #         all_data.append(item)
-        #
-        #     temp_dir_name = os.path.join(args.save_topk_outputs_path,
-        #                                  "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
-        #     save_shard(all_data, temp_dir_name)
-        #     del all_data
-        #     torch.distributed.barrier()
-        #
-        #     if mpu.get_data_parallel_rank() == 0:
-        #         file_name = os.path.splitext(os.path.basename(qa_file))[0]
-        #         all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
-        #         # make sure that every single piece of data was embedded
-        #         assert len(all_data) == len(eval_dataset)
-        #         del all_data
+        if args.save_topk_outputs_path is not None:
+            data = ""
+            str_template = "{} Q0 {} {} {} upr-distill\n"
+            for i, (qid, candidate_list) in enumerate(qids_to_ranked_candidate_passages.items()):
+                for rank, doc_id in enumerate(candidate_list):
+                    score = 1.0 / int(rank + 1)
+                    data += str_template.format(qid, doc_id, rank+1, score)
+
+            temp_dir_name = os.path.join(args.save_topk_outputs_path,
+                                         "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
+            save_shard(data, temp_dir_name)
+            del data
+            torch.distributed.barrier()
+
+            if mpu.get_data_parallel_rank() == 0:
+                file_name = os.path.splitext(os.path.basename(qa_file))[0]
+                all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
+                # make sure that every single piece of data was embedded
+                assert len(all_data) == len(eval_dataset) * args.report_topk_accuracies[-1]
+                del all_data
 
         torch.distributed.barrier()
         return
@@ -255,9 +248,9 @@ def save_shard(data, temp_dir_name):
     if not os.path.isdir(temp_dir_name):
         os.makedirs(temp_dir_name, exist_ok=True)
 
-    outpath = os.path.join(temp_dir_name, "rank{}.json".format(mpu.get_data_parallel_rank()))
+    outpath = os.path.join(temp_dir_name, "rank{}.txt".format(mpu.get_data_parallel_rank()))
     with open(outpath, "w") as writer:
-        writer.write(json.dumps(data, indent=4) + "\n")
+        writer.write(data)
 
 
 def merge_shards_and_save(output_dir_path, temp_dir_name, file_name):
@@ -270,18 +263,19 @@ def merge_shards_and_save(output_dir_path, temp_dir_name, file_name):
         old_size = len(all_data)
         fpath = '{}/{}'.format(temp_dir_name, fname)
         with open(fpath, 'r') as f:
-            data = json.load(f)
-            shard_size = len(data)
-            all_data.extend(data)
+            for line in f:
+                shard_size += 1
+                all_data.extend(line)
 
         assert len(all_data) == old_size + shard_size
         os.remove(fpath)
 
     # save the consolidated shards
-    outpath = os.path.join(output_dir_path, "{}.json".format(file_name))
+    outpath = os.path.join(output_dir_path, "{}.txt".format(file_name))
 
     with open(outpath, 'w') as writer:
-        writer.write(json.dumps(all_data, indent=4) + "\n")
+        for line in all_data:
+            writer.write(line)
 
     print("Finished merging {} shards for a total of {} embeds".format(
         len(shard_names), len(all_data)), flush=True)
