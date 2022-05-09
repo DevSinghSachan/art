@@ -199,7 +199,7 @@ class OpenRetrievalEvaluator(object):
                     data += str_template.format(qid, doc_id, rank+1, score)
 
             temp_dir_name = os.path.join(args.save_topk_outputs_path,
-                                         "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
+                                         "_tmp_reranker_{}".format(os.getppid()))
             save_shard(data, temp_dir_name)
             del data
             torch.distributed.barrier()
@@ -265,7 +265,7 @@ def merge_shards_and_save(output_dir_path, temp_dir_name, file_name):
         with open(fpath, 'r') as f:
             for line in f:
                 shard_size += 1
-                all_data.extend(line)
+                all_data.append(line)
 
         assert len(all_data) == old_size + shard_size
         os.remove(fpath)
