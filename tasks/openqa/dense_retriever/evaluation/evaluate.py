@@ -211,6 +211,20 @@ class OpenRetrievalEvaluator(object):
                 assert len(all_data) == len(eval_dataset) * args.report_topk_accuracies[-1]
                 del all_data
 
+                # Run the recall@100 evaluation
+                outpath_file_path = os.path.join(args.save_topk_outputs_path, "{}.txt".format(file_name))
+                qrels_file_path_trec_format = "temp-topk-outputs-path/qrels.dev.small.trec"
+                args = ['./trec_eval',
+                        '-c',
+                        '-mrecall.100',
+                        '-mmap',
+                        qrels_file_path_trec_format,
+                        outpath_file_path]
+                from subprocess import Popen, PIPE
+                process = Popen(args, stdout=PIPE, stderr=PIPE)
+                stdout, stderr = process.communicate()
+                print_rank_0(stdout.decode("utf-8"))
+
         torch.distributed.barrier()
         return
 
