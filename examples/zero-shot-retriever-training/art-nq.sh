@@ -9,6 +9,9 @@ QA_FILE_DEV="${DATA_DIR}/qas/nq-dev.csv"
 QA_FILE_TEST="${DATA_DIR}/qas/nq-test.csv"
 EVIDENCE_DATA_PATH="${DATA_DIR}/wikipedia-split/psgs_w100.tsv"
 
+# Please specify the model name from Huggingface models
+CROSS_ATTENTION_SCORER="bigscience/T0_3B"
+
 TOPK_DOCUMENTS=32
 WORLD_SIZE=16
 EPOCHS=10
@@ -103,6 +106,7 @@ OPTIONS=" \
           --update-retriever \
           --allow-trivial-doc \
           --shard-size 16 \
+          --hf-model-name ${CROSS_ATTENTION_SCORER} \
           --initialize-t0-model-tokenizer-evidence \
           --t0-model-in-bf16 \
           --index-reload-interval 500 \
