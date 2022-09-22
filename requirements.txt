@@ -1,0 +1,9 @@
+apex==0.1
+faiss==1.5.3
+jsonlines==3.1.0
+numpy==1.22.0
+regex==2022.1.18
+six==1.16.0
+spacy==3.2.1
+torch==1.11.0a0+bfe5ad2
+transformers==4.22.1
