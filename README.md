@@ -22,20 +22,20 @@
 <a id="setup"></a>
 # Setup
 
-To use this repo, a standard installation of [PyTorch](https://pytorch.org/) along with [Apex](https://github.com/NVIDIA/apex) is needed.
+* To use this repo, a standard installation of [PyTorch](https://pytorch.org/) along with [Apex](https://github.com/NVIDIA/apex) is needed.
 We provide dependencies (and their versions used in our work) in the requirements.txt file.
 
-We recommend using one of [NGC's more recent containers](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags) that come with PyTorch and Apex pre-installed. 
+* We recommend using one of [NGC's more recent containers](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags) that come with PyTorch and Apex pre-installed. 
 The docker image we used can be pulled with the command `docker pull nvcr.io/nvidia/pytorch:22.01-py3`.
 To use this docker image, an installation of the [Nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#install-guide) is also required.
 
-To run the above image in an interactive mode, please use this command
+* To run the above image in an interactive mode, please use this command
 <pre>
 sudo docker run --ipc=host --gpus all -it --rm -v /mnt/disks:/mnt/disks nvcr.io/nvidia/pytorch:22.01-py3 bash
 </pre>
 , where `/mnt/disks` is the directory to be mounted.
 
-Over the docker container, please install the libraries `transformers`, `sentencepiece`, `spacy`, and `jsonlines` using pip install.
+* Over the docker container, please install the libraries `transformers`, `sentencepiece`, `spacy`, and `jsonlines` using pip install.
 
 
 <a id="downloading-data-and-checkpoints"></a>
@@ -65,23 +65,30 @@ These files can also be downloaded separately by using the `wget` command-line u
 <a id="training"></a>
 # Training
 
-We have provided an example script for training models for dense retriever in [`examples`](./examples) directory.
+* We have provided an example script for training models for dense retriever in [`examples/zero-shot-retriever-training`](examples/zero-shot-retriever-training) directory.
+  Please ensure to change the data and checkpoint paths in these scripts.
 
-Please ensure to change the data and checkpoint paths in these scripts.
-
-To replicate the results on the Natural Questions-Open (NQ-Open) dataset, run the script as
+* To replicate the results on the Natural Questions-Open (NQ-Open) dataset, please run the script as
+```bash
+bash examples/zero-shot-retriever-training/art_nq.sh
 ```
-bash examples/zero_shot_retriever/art_nq.sh
-```
 
-For training, we used a single node of 16 A100 GPUs with 40GB GPU memory. The training can also be performed on 8 A100 GPUs (with 40GB or 80GB RAM) or 8 A6000 GPUs (with 48GB RAM).
+* This script uses (unsupervised) [masked salient spans (MSS)](https://arxiv.org/abs/2106.05346) pre-trained retriever to initialize the retriever weights, and [T0-3B pre-trained language model](https://arxiv.org/abs/2110.08207) weights for the cross-attention scorer.
 
-We used the same hyperparameters as mentioned in the above script for other datasets as well, except for WebQuestions where we used a batch size of 16 and 20 epochs for training.
+* For training, we used a single node of 16 A100 GPUs with 40GB GPU memory. 
+The training can also be performed on 8 A100 GPUs (with 40GB or 80GB RAM) or 8 A6000 GPUs (with 48GB RAM).
+
+* Using Ampere GPUs provides speed ups and memory savings as the T0 model can be used in `bf16` floating-point format with the argument `--t0-model-in-bf16`. 
+However, when working with V100 GPUs, this argument should be removed as they don't support `bf16` data type and the training could be much slower.
+
+* When using 8 GPUs, please set the per GPU batch size to 8 with the argument `--batch-size 8` as this will lead to a global batch size of 64.
+
+* We used the same hyperparameters as mentioned in the above script for other datasets as well, except for WebQuestions where we used a batch size of 16 and 20 epochs for training.
 
 <a id="pre-trained-checkpoints"></a>
 # Pre-trained Checkpoints
 
-We are working to add pre-trained checkpoints.
+We are working to add pre-trained checkpoints. Please check back soon.
 
 
 <a id="issues"></a>
