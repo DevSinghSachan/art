@@ -31,7 +31,7 @@ To use this docker image, an installation of the [Nvidia container toolkit](http
 
 To run the above image in an interactive mode, please use this command
 <pre>
-sudo docker run --ipc=host --gpus all -it --rm -v /mnt/disks:/mnt/disks nvcr.io/nvidia/pytorch:20.10-py3 bash
+sudo docker run --ipc=host --gpus all -it --rm -v /mnt/disks:/mnt/disks nvcr.io/nvidia/pytorch:22.01-py3 bash
 </pre>
 , where `/mnt/disks` is the directory to be mounted.
 
