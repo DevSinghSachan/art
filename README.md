@@ -53,8 +53,8 @@ These files can also be downloaded separately by using the `wget` command-line u
 ##### Required data files for training
 - [Wikipedia evidence passages](https://www.dropbox.com/s/bezryc9win2bha1/psgs_w100.tar.gz)
 - [BERT pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/yxsne7qzz848pk4/indexed-evidence-bert-tokenized.tar.gz)
-- [T0 pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/4tvvll8qeso7fal/indexed-evidence-t0-tokenized.tar.gz)
-- [Training and evaluation datasets](https://www.dropbox.com/s/yj7hukwyl04hvs3/qas.tar.gz)
+- [T0 pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/4tvvll8qeso7fal/indexed-evidence-t0-tokenized.tar.gz): This will work for both T0 and T5 models.
+- [Training and evaluation datasets](https://www.dropbox.com/s/yj7hukwyl04hvs3/qas.tar.gz): Natural Questions (NQ)-Open, TriviaQA, SQuAD1, WebQuestions (WebQ).
 - [BERT-large vocabulary file](https://www.dropbox.com/s/ttblv1uggd4cijt/bert-large-uncased-vocab.txt)
 
 ##### Required checkpoints and pre-computed evidence embeddings
@@ -66,7 +66,7 @@ These files can also be downloaded separately by using the `wget` command-line u
 # Training
 
 * We have provided an example script for training models for dense retriever in [`examples/zero-shot-retriever-training`](examples/zero-shot-retriever-training) directory.
-  Please ensure to change the data and checkpoint paths in these scripts.
+  Please ensure to change the data and checkpoint paths in these scripts. If you have downloaded the data in the previous step using the download script, then just provide the DIRNAME path in line 3.
 
 * To replicate the results on the Natural Questions-Open (NQ-Open) dataset, please run the script as
 ```bash
@@ -74,6 +74,12 @@ bash examples/zero-shot-retriever-training/art_nq.sh
 ```
 
 * This script uses (unsupervised) [masked salient spans (MSS)](https://arxiv.org/abs/2106.05346) pre-trained retriever to initialize the retriever weights, and [T0-3B pre-trained language model](https://arxiv.org/abs/2110.08207) weights for the cross-attention scorer.
+
+* This script trains the base configuration of dense retriever for 10 epochs, 64 batch size (per GPU batch size of 4), retrieves 32 documents at every step and optimizes using Adam optimizer. After every 500 steps, the code is setup to re-compute evidence document embeddings and evaluates on both the dev and test sets. 
+
+* Retriever checkpoints are saved after every `--save-interval` steps. Recomputing evidence embeddings can be configured using the option of `--index-reload-interval` and evaluation interval can be configured using the option of `--eval-interval`.
+It is recommended to set `--eval-interval` as a multiple of `--save-interval`. 
+The option of `--shard-size` controls for how many topk documents for a question to select for the cross-attention step. A smaller value should lower the memory footprint in GPUs.
 
 * For training, we used a single node of 16 A100 GPUs with 40GB GPU memory. 
 The training can also be performed on 8 A100 GPUs (with 40GB or 80GB RAM) or 8 A6000 GPUs (with 48GB RAM).
