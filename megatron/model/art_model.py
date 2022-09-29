@@ -26,7 +26,7 @@ class ARTModel(MegatronModule):
             bert_tokenizer = get_tokenizer()
             bert_vocab_size = vocab_size_with_padding(bert_tokenizer.vocab_size,
                                                       args)
-            print_rank_0('building Retriever for ART (Autoencoding-based Passage Retriever) ...')
+            print_rank_0('building Retriever for ART (Autoencoding-based Retriever Training) ...')
             self.retriever_model = dualencoder_model_provider(only_context_model=False,
                                                               only_query_model=False,
                                                               vocab_size=bert_vocab_size)

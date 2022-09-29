@@ -13,6 +13,7 @@ EVIDENCE_DATA_PATH="${DATA_DIR}/wikipedia-split/psgs_w100.tsv"
 CROSS_ATTENTION_SCORER="bigscience/T0_3B"
 
 TOPK_DOCUMENTS=32
+# SET THIS TO NUMBER OF GPUs
 WORLD_SIZE=16
 EPOCHS=10
 RETRIEVER_CONFIG="base"
@@ -64,7 +65,7 @@ fi
 
 
 OPTIONS=" \
-          --train-data $TRAIN_DATA \
+          --train-data ${TRAIN_DATA} \
           --qa-file-dev ${QA_FILE_DEV} \
           --qa-file-test ${QA_FILE_TEST} \
           --evidence-data-path ${EVIDENCE_DATA_PATH} \
