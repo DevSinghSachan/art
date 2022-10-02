@@ -2,19 +2,16 @@
 
 CHECKPOINT_PATH=$1
 WORLD_SIZE=16
+RETRIEVER_CONFIG="base"
 BASE_DIR="/mnt/disks/project"
 DATA_DIR="${BASE_DIR}/data"
 EVIDENCE_DATA_PATH="${DATA_DIR}/wikipedia-split/psgs_w100.tsv"
 VOCAB_FILE="${BASE_DIR}/bert-vocab/bert-large-uncased-vocab.txt"
-RETRIEVER_CONFIG="base"
-
-echo "$(basename "${CHECKPOINT_PATH}").pkl"
-exit
-
-EMBEDDING_PATH="${BASE_DIR}/embedding-path/art-finetuning-embedding/$(basename "${CHECKPOINT_PATH}").pkl"
 QA_FILE_DEV="${DATA_DIR}/qas/nq-dev.csv"
 QA_FILE_TEST="${DATA_DIR}/qas/nq-test.csv"
 
+EMBEDDING_FILE_NAME="$(basename "$(dirname "${CHECKPOINT_PATH}")").pkl"
+EMBEDDING_PATH="${BASE_DIR}/embedding-path/art-finetuning-embedding/${EMBEDDING_FILE_NAME}"
 CREATE_EVIDENCE_INDEXES="true"
 EVALUATE_RETRIEVER_RECALL="true"
 
