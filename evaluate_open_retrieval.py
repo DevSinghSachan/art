@@ -11,7 +11,7 @@ def main():
     initialize_megatron()
 
     args = get_args()
-    evaluator = OpenRetrievalEvaluator()
+    evaluator = OpenRetrievalEvaluator(use_faiss=False)
 
     if args.qa_file_dev is not None:
         if args.glob:

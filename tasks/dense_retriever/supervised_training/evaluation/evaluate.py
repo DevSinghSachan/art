@@ -4,12 +4,14 @@ import json
 import torch
 from megatron import get_args, print_rank_0, get_tokenizer, mpu
 from megatron.training import get_model
+from megatron.mpu import get_node_first_rank
+from megatron.mpu.initialize import get_data_parallel_group
 from megatron.model.dualencoder_model import dualencoder_model_provider
 from megatron.checkpointing import load_dualencoder_checkpoint
 from megatron.data.orqa_wiki_dataset import get_open_retrieval_wiki_dataset
 from tasks.dense_retriever.supervised_training.evaluation.data import get_qa_dataset, get_one_epoch_qa_dataloader, process_qa_batch
 from tasks.dense_retriever.supervised_training.evaluation.qa_validation import calculate_matches
-from megatron.data.art_index import OpenRetreivalDataStore, FaissMIPSIndex
+from megatron.data.art_index import OpenRetreivalDataStore, FaissMIPSIndex, DistributedBruteForceIndex
 
 
 class OpenRetrievalEvaluator(object):
@@ -32,8 +34,11 @@ class OpenRetrievalEvaluator(object):
 
         if load_evidence_dataset:
             self.get_evidence_dataset()
+
         if use_faiss:
             self.faiss_wrapper()
+        else:
+            self.precomputed_index_wrapper()
 
         # Wait for the index to be initialized in all the nodes
         torch.distributed.barrier()
@@ -45,6 +50,7 @@ class OpenRetrievalEvaluator(object):
     def get_evidence_dataset(self):
         self.evidence_dataset = get_open_retrieval_wiki_dataset()
 
+
     def faiss_wrapper(self):
         # Initialize FAISS wrapper on local rank = 0 as the evidence embeddings is distributed over all the GPUs in a node
         args = get_args()
@@ -54,6 +60,16 @@ class OpenRetrievalEvaluator(object):
             self.mips_index = FaissMIPSIndex(embed_size=args.hidden_size,
                                              embed_data=self.evidence_embedder_obj,
                                              use_gpu=args.faiss_use_gpu)
+
+    def precomputed_index_wrapper(self):
+        args = get_args()
+        if get_node_first_rank() == torch.distributed.get_rank():
+            self.get_evidence_embedding()
+            assert self.evidence_embedder_obj is not None
+            self.mips_index = DistributedBruteForceIndex(embed_size=args.hidden_size,
+                                                         embed_data=self.evidence_embedder_obj)
+        # Wait for the index to be initialized in all the GPUs
+        torch.distributed.barrier(get_data_parallel_group())
 
     def generate_query_vectors(self, eval_dataset):
         dataloader = iter(get_one_epoch_qa_dataloader(eval_dataset))
