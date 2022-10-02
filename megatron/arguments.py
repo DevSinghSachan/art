@@ -546,7 +546,7 @@ def _add_art_args(parser):
     group.add_argument('--verbalizer-head', type=str, default="Passage: ",
                        help='The string token used to represent encoder input')
 
-    group.add_argument('--shard-size', type=int, default=20,
+    group.add_argument('--shard-size', type=int, default=16,
                        help='Shard size of top-K passages to get T0 logits')
 
     group.add_argument('--initialize-t0-model-tokenizer-evidence', action='store_true',
