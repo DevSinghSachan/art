@@ -1,6 +1,8 @@
 #!/bin/bash
 
 CHECKPOINT_PATH=$1
+
+
 WORLD_SIZE=16
 RETRIEVER_CONFIG="base"
 BASE_DIR="/mnt/disks/project"
@@ -14,6 +16,9 @@ EMBEDDING_FILE_NAME="$(basename "$(dirname "${CHECKPOINT_PATH}")").pkl"
 EMBEDDING_PATH="${BASE_DIR}/embedding-path/art-finetuning-embedding/${EMBEDDING_FILE_NAME}"
 CREATE_EVIDENCE_INDEXES="true"
 EVALUATE_RETRIEVER_RECALL="true"
+
+ITER_NUM="$(cut -d'_' -f2 <<<"basename ${CHECKPOINT_PATH}")"
+echo "${ITER_NUM}" > "$(dirname "${CHECKPOINT_PATH}")/latest_checkpointed_iteration.txt"
 
 DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${WORLD_SIZE} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
 
@@ -71,7 +76,7 @@ fi
 set +x
 
 
-OPTIONS="
+OPTIONS=" \
     --checkpoint-activations \
     --seq-length 512 \
     --max-position-embeddings 512 \
