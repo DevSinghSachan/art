@@ -20,6 +20,9 @@ EVALUATE_RETRIEVER_RECALL="true"
 ITER_NUM="$(cut -d'_' -f2 <<<"$(basename "${INPUT_PATH}")")"
 echo "${ITER_NUM}" > "${CHECKPOINT_PATH}/latest_checkpointed_iteration.txt"
 
+TMP_CHECKPOINT_PATH=${CHECKPOINT_PATH}"_tmp"
+python tools/save_art_retriever.py --load ${CHECKPOINT_PATH} --save ${TMP_CHECKPOINT_PATH} --submodel-name "retriever"
+
 DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${WORLD_SIZE} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
 
 
@@ -58,7 +61,7 @@ OPTIONS=" \
         --seq-length 512 \
         --seq-length-retriever 256 \
         --max-position-embeddings 512 \
-        --load ${CHECKPOINT_PATH} \
+        --load ${TMP_CHECKPOINT_PATH} \
         --evidence-data-path ${EVIDENCE_DATA_PATH} \
         --embedding-path ${EMBEDDING_PATH} \
         --indexer-log-interval 1000 \
@@ -81,7 +84,7 @@ OPTIONS=" \
     --checkpoint-activations \
     --seq-length 512 \
     --max-position-embeddings 512 \
-    --load ${CHECKPOINT_PATH} \
+    --load ${TMP_CHECKPOINT_PATH} \
     --evidence-data-path ${DATA_DIR} \
     --embedding-path ${EMBEDDING_PATH} \
     --batch-size 16 \
