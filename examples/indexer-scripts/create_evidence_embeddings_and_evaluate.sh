@@ -1,7 +1,6 @@
 #!/bin/bash
 
-CHECKPOINT_PATH=$1
-
+INPUT_PATH=$1
 
 WORLD_SIZE=16
 RETRIEVER_CONFIG="base"
@@ -12,12 +11,13 @@ VOCAB_FILE="${BASE_DIR}/bert-vocab/bert-large-uncased-vocab.txt"
 QA_FILE_DEV="${DATA_DIR}/qas/nq-dev.csv"
 QA_FILE_TEST="${DATA_DIR}/qas/nq-test.csv"
 
-EMBEDDING_FILE_NAME="$(basename "$(dirname "${CHECKPOINT_PATH}")").pkl"
+CHECKPOINT_PATH=$(dirname "${INPUT_PATH}")
+EMBEDDING_FILE_NAME="$(basename "${CHECKPOINT_PATH").pkl"
 EMBEDDING_PATH="${BASE_DIR}/embedding-path/art-finetuning-embedding/${EMBEDDING_FILE_NAME}"
 CREATE_EVIDENCE_INDEXES="true"
 EVALUATE_RETRIEVER_RECALL="true"
 
-ITER_NUM="$(cut -d'_' -f2 <<<"basename ${CHECKPOINT_PATH}")"
+ITER_NUM="$(cut -d'_' -f2 <<<"basename ${INPUT_PATH}")"
 echo "${ITER_NUM}" > "$(dirname "${CHECKPOINT_PATH}")/latest_checkpointed_iteration.txt"
 
 DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${WORLD_SIZE} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
