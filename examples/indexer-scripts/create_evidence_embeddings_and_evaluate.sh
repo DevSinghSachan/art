@@ -63,6 +63,8 @@ OPTIONS=" \
         --max-position-embeddings 512 \
         --load ${TMP_CHECKPOINT_PATH} \
         --evidence-data-path ${EVIDENCE_DATA_PATH} \
+        --indexed-evidence-bert-tokenized-data-path ${DATA_DIR}/evidence-wikipedia-indexed-mmap/bert/wikipedia-evidence-bert_text_document \
+        --indexed-title-bert-tokenized-data-path ${DATA_DIR}/evidence-wikipedia-indexed-mmap/bert/wikipedia-evidence-bert_title_document \
         --embedding-path ${EMBEDDING_PATH} \
         --indexer-log-interval 1000 \
         --indexer-batch-size 128 \
@@ -101,7 +103,6 @@ OPTIONS=" \
 
 
 mkdir ${DATA_DIR}/retriever-topk-outputs
-
 
 if [ ${EVALUATE_RETRIEVER_RECALL} == "true" ];
 then
