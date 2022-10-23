@@ -1,4 +1,3 @@
-
 """Index evidence dataset for use in QA tasks.
    This file is similar to the tools/preprocess_data.py script in the backbones
 """
@@ -11,9 +10,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              os.path.pardir)))
 import time
-
 import torch
-
 from megatron.tokenizer import build_tokenizer
 from megatron.data import indexed_dataset
 
