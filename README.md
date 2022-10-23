@@ -96,6 +96,15 @@ However, when working with V100 GPUs, this argument should be removed as they do
 
 We are working to add pre-trained checkpoints. Please check back soon.
 
+# Helper Scripts
+
+* Create Wikipedia memory-mapped index using BERT tokenizer
+```python
+python tools/create_evidence_indexed_dataset.py --input /mnt/disks/project/data/dpr/wikipedia_split/psgs_w100.tsv --tsv-keys text title --tokenizer-type BertWordPieceLowerCase --vocab-file /mnt/disks/project/bert-vocab/bert-large-uncased-vocab.txt --output-prefix wikipedia-evidence --workers 25
+```
+
+
+
 
 <a id="issues"></a>
 # Issues

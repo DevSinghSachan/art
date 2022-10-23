@@ -14,6 +14,17 @@ import torch
 from megatron.tokenizer import build_tokenizer
 from megatron.data import indexed_dataset
 
+# https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
+maxInt = sys.maxsize
+while True:
+    # decrease the maxInt value by factor 10
+    # as long as the OverflowError occurs.
+    try:
+        csv.field_size_limit(maxInt)
+        break
+    except OverflowError:
+        maxInt = int(maxInt/10)
+
 
 class IdentitySplitter(object):
     def tokenize(self, *text):
