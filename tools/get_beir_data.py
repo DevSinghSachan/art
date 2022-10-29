@@ -19,7 +19,8 @@ def load_dataset(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input-path')
-    parser.add_argument('--output-path')
-
+    parser.add_argument('--input-path', type=str)
+    parser.add_argument('--output-path', type=str)
     args = parser.parse_args()
+
+    load_dataset(args)
