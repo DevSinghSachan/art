@@ -256,9 +256,9 @@ class OpenRetrievalEvaluator(object):
 
         qrels = {}
         results = {}
-        for i, (ids_and_scores, reference) in enumerate(top_ids_and_scores, reference_list):
-            qrels[str(i)] = {str(k): v for k, v in reference}
-            results[str(i)] = {str(k["id"]): k["score"] for id, score in ids_and_scores}
+        for i, ((id_list, score_list), reference) in enumerate(zip(top_ids_and_scores, reference_list)):
+            qrels[str(i)] = {str(k): v for k, v in reference.items()}
+            results[str(i)] = {str(id): score for id, score in zip(id_list, score_list)}
 
         ndcg_string = "ndcg_cut." + ",".join([str(k) for k in args.report_topk_accuracies])
         recall_string = "recall." + ",".join([str(k) for k in args.report_topk_accuracies])
