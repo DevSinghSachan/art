@@ -192,7 +192,6 @@ def _add_network_size_args(parser):
                        'reasons.')
     group.add_argument('--onnx-safe', type=bool, required=False,
                        help='Use workarounds for known problems with Torch ONNX exporter')
-
     return parser
 
 
@@ -583,4 +582,9 @@ def _add_art_args(parser):
                        help='allow retriever to fetch the document from which a query came')
     group.add_argument('--run-indexer', action='store_true',
                        help='Whether to run the indexer job or not')
+
+    # Trec Eval
+    group.add_argument('--trec-eval', action='store_true',
+                       help='Whether to use trec evaluation tools')
+
     return parser
