@@ -54,6 +54,8 @@ class Encoder(object):
                 sentence_ids = Encoder.tokenizer.tokenize(sentence)
                 if len(sentence_ids) > 0:
                     doc_ids.append(sentence_ids)
+                else:
+                    doc_ids.append([Encoder.tokenizer.cls, Encoder.tokenizer.sep])
             ids[key] = doc_ids
         return ids, len(csv_line)
 
@@ -101,7 +103,7 @@ def main():
     startup_start = time.time()
 
     print("Opening", args.input)
-    tsvfile = open(args.input, 'r')
+    tsvfile = open(args.input, 'r', encoding='utf-8')
     reader = csv.reader(tsvfile, delimiter='\t')
     next(reader, None)  # skip the headers
 
