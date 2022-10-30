@@ -101,7 +101,7 @@ def main():
     startup_start = time.time()
 
     print("Opening", args.input)
-    tsvfile = open(args.input, 'r', encoding='utf-8')
+    tsvfile = open(args.input, 'r')
     reader = csv.reader(tsvfile, delimiter='\t')
     next(reader, None)  # skip the headers
 
