@@ -1,5 +1,6 @@
 import os
 import shutil
+import math
 import json
 import torch
 from megatron import get_args, print_rank_0, get_tokenizer, mpu
@@ -177,7 +178,7 @@ class OpenRetrievalEvaluator(object):
 
         del all_query_tensor
 
-        topk_sim_scores = distance #/ math.sqrt(args.hidden_size)
+        topk_sim_scores = distance / math.sqrt(args.hidden_size)
 
         top_ids_and_scores = []
         for darray, topkarray in zip(topk_sim_scores, topkindex):
