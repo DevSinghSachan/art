@@ -13,7 +13,7 @@ from megatron.data.orqa_wiki_dataset import get_open_retrieval_wiki_dataset
 from tasks.dense_retriever.supervised_training.evaluation.data import get_qa_dataset, get_one_epoch_qa_dataloader, process_qa_batch
 from tasks.dense_retriever.supervised_training.evaluation.qa_validation import calculate_matches
 from megatron.data.art_index import OpenRetreivalDataStore, FaissMIPSIndex, DistributedBruteForceIndex
-import pytrec_eval
+
 
 
 class OpenRetrievalEvaluator(object):
@@ -194,59 +194,61 @@ class OpenRetrievalEvaluator(object):
             self.trec_eval(top_ids_and_scores, reference_list)
             # self.recall_cap(reranked_data)
 
-        # match_stats = calculate_matches(passages,
-        #                                 reference_list,
-        #                                 top_ids_and_scores,
-        #                                 workers_num=args.num_workers,
-        #                                 match_type=args.match)
-        #
-        # doc_hits = match_stats.questions_doc_hits
-        # top_k_hits = torch.FloatTensor(match_stats.top_k_hits).cuda()
-        #
-        # # Accumulating and summing top-k hits scores from all the ranks
-        # torch.distributed.all_reduce(top_k_hits, torch.distributed.ReduceOp.SUM)
-        #
-        # top_k_hits = [v / num_rows for v in top_k_hits]
-        #
-        # print_str = "{} SET RESULTS\tstep: {}\t".format(split, iteration_num)
-        # for i in args.report_topk_accuracies:
-        #     print_str += "top-{}: {:.2f}\t".format(i, top_k_hits[i-1] * 100)
-        #
-        # print_rank_0(print_str)
+        else:
+            match_stats = calculate_matches(passages,
+                                            reference_list,
+                                            top_ids_and_scores,
+                                            workers_num=args.num_workers,
+                                            match_type=args.match)
 
-        # if args.save_topk_outputs_path is not None:
-        #     all_data = []
-        #     for i, (q, d, r) in enumerate(zip(query_list, doc_hits, reference_list)):
-        #         ctx_list = []
-        #         for j in range(args.topk_retrievals):
-        #
-        #             ctx = {"id": top_ids_and_scores[i][0][j],
-        #                    "score": top_ids_and_scores[i][1][j],
-        #                    "has_answer": d[j]}
-        #             ctx_list.append(ctx)
-        #         item = {"question": q,
-        #                 "answers": r,
-        #                 "ctxs": ctx_list}
-        #         all_data.append(item)
-        #
-        #     temp_dir_name = os.path.join(args.save_topk_outputs_path,
-        #                                  "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
-        #     save_shard(all_data, temp_dir_name)
-        #     del all_data
-        #     torch.distributed.barrier()
-        #
-        #     if mpu.get_data_parallel_rank() == 0:
-        #         file_name = os.path.splitext(os.path.basename(qa_file))[0]
-        #         all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
-        #         # make sure that every single piece of data was embedded
-        #         assert len(all_data) == len(eval_dataset)
-        #         del all_data
+            doc_hits = match_stats.questions_doc_hits
+            top_k_hits = torch.FloatTensor(match_stats.top_k_hits).cuda()
+
+            # Accumulating and summing top-k hits scores from all the ranks
+            torch.distributed.all_reduce(top_k_hits, torch.distributed.ReduceOp.SUM)
+
+            top_k_hits = [v / num_rows for v in top_k_hits]
+
+            print_str = "{} SET RESULTS\tstep: {}\t".format(split, iteration_num)
+            for i in args.report_topk_accuracies:
+                print_str += "top-{}: {:.2f}\t".format(i, top_k_hits[i-1] * 100)
+
+            print_rank_0(print_str)
+
+            if args.save_topk_outputs_path is not None:
+                all_data = []
+                for i, (q, d, r) in enumerate(zip(query_list, doc_hits, reference_list)):
+                    ctx_list = []
+                    for j in range(args.topk_retrievals):
+
+                        ctx = {"id": top_ids_and_scores[i][0][j],
+                               "score": top_ids_and_scores[i][1][j],
+                               "has_answer": d[j]}
+                        ctx_list.append(ctx)
+                    item = {"question": q,
+                            "answers": r,
+                            "ctxs": ctx_list}
+                    all_data.append(item)
+
+                temp_dir_name = os.path.join(args.save_topk_outputs_path,
+                                             "_tmp_reranker_{}".format(os.getenv("SLURM_JOBID")))
+                save_shard(all_data, temp_dir_name)
+                del all_data
+                torch.distributed.barrier()
+
+                if mpu.get_data_parallel_rank() == 0:
+                    file_name = os.path.splitext(os.path.basename(qa_file))[0]
+                    all_data = merge_shards_and_save(args.save_topk_outputs_path, temp_dir_name, file_name)
+                    # make sure that every single piece of data was embedded
+                    assert len(all_data) == len(eval_dataset)
+                    del all_data
 
         torch.distributed.barrier()
         return
 
 
     def trec_eval(self, top_ids_and_scores, reference_list):
+        import pytrec_eval
         args = get_args()
         ndcg = {}
         recall = {}
