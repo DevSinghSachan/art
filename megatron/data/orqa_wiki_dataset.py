@@ -1,4 +1,5 @@
 import csv
+import sys
 import random
 import time
 from abc import ABC
@@ -6,6 +7,17 @@ import numpy as np
 from torch.utils.data import Dataset
 from megatron import print_rank_0, get_args, get_tokenizer
 from megatron.data.mask_creation_utils import make_attention_mask
+
+# https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
+maxInt = sys.maxsize
+while True:
+    # decrease the maxInt value by factor 10
+    # as long as the OverflowError occurs.
+    try:
+        csv.field_size_limit(maxInt)
+        break
+    except OverflowError:
+        maxInt = int(maxInt/10)
 
 
 def get_open_retrieval_wiki_dataset():
