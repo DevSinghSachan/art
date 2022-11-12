@@ -192,7 +192,7 @@ class OpenRetrievalEvaluator(object):
 
         if args.trec_eval:
             self.trec_eval(top_ids_and_scores, reference_list)
-            # self.recall_cap(reranked_data)
+            self.recall_cap(top_ids_and_scores, reference_list)
 
         else:
             match_stats = calculate_matches(passages,
@@ -293,6 +293,45 @@ class OpenRetrievalEvaluator(object):
 
             for i, k in enumerate(args.report_topk_accuracies):
                 print_rank_0("Recall@{}: {:.4f}".format(k, recall_tensor[i] * 100))
+
+
+    def recall_cap(self, top_ids_and_scores, reference_list):
+        args = get_args()
+        capped_recall = {}
+        for k in args.report_topk_accuracies:
+            capped_recall[f"R_cap@{k}"] = 0.0
+
+        k_max = max(args.report_topk_accuracies)
+
+        qrels = {}
+        results = {}
+        for i, ((id_list, score_list), reference) in enumerate(zip(top_ids_and_scores, reference_list)):
+            qrels[str(i)] = {str(k): v for k, v in reference.items()}
+            results[str(i)] = {str(id): score for id, score in zip(id_list, score_list)}
+
+        for query_id, doc_scores in results.items():
+            top_hits = sorted(doc_scores.items(), key=lambda item: item[1], reverse=True)[0:k_max]
+            query_relevant_docs = [doc_id for doc_id in qrels[query_id] if qrels[query_id][doc_id] > 0]
+            for k in args.report_topk_accuracies:
+                retrieved_docs = [row[0] for row in top_hits[0:k] if qrels[query_id].get(row[0], 0) > 0]
+                denominator = min(len(query_relevant_docs), k)
+                capped_recall[f"R_cap@{k}"] += (len(retrieved_docs) / denominator)
+
+        capped_recall_tensor = torch.FloatTensor([capped_recall[f"R_cap@{k}"] for k in args.report_topk_accuracies]).cuda()
+        torch.distributed.all_reduce(capped_recall_tensor, torch.distributed.ReduceOp.SUM)
+
+        n_queries = torch.FloatTensor([len(results)]).cuda()
+        torch.distributed.all_reduce(n_queries, torch.distributed.ReduceOp.SUM)
+
+        if torch.distributed.get_rank() == 0:
+            capped_recall_tensor = capped_recall_tensor / n_queries
+
+            print_rank_0("\n")
+            for i, k in enumerate(args.report_topk_accuracies):
+                print_rank_0("Capped-Recall@{}: {:.4f}".format(k, capped_recall_tensor[i] * 100))
+            print_rank_0("\n")
+
+        return capped_recall
 
 
 @torch.no_grad()
