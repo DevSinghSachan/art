@@ -121,13 +121,14 @@ However, when working with V100 GPUs, this argument should be removed as they do
 bash examples/zero-shot-retriever-training/art-nq-t5-lm-adapted-11B.sh
 ```
 
-* The details for training on MS MARCO dataset are included in the branch `msmarco`. The code is not very clean but the default scripts should work fine.
-
 * Once training is completed, the retriever checkpoint can be saved from the model checkpoint (in ${CHECKPOINT_PATH}) as
 ```bash
 RETRIEVER_CHECKPOINT_PATH=${CHECKPOINT_PATH}"-tmp"
 python tools/save_art_retriever.py --load ${CHECKPOINT_PATH} --save ${RETRIEVER_CHECKPOINT_PATH} --submodel-name "retriever"
 ```
+
+* **MS MARCO**: The details for training on MS MARCO dataset are included in the branch `msmarco`. The code is not very clean but the default scripts should work fine.
+
 
 <a id="pre-trained-checkpoints"></a>
 # Pre-trained Checkpoints
@@ -174,6 +175,25 @@ Evaluation Split| Config |  Cross-Attention PLM         |  NQ-Open | TriviaQA |
 |:---------|:---|:-----------:|:-----------:|:-------:|
 Test | Base | T0 (3B) | 81.6 / 89.0 | 82.9 / 87.1 |
 Test | Large |T0 (3B) | 82.1 / 88.8 | 83.6 / 87.6 |
+
+
+#### BEIR Benchmark Experiments
+
+On the BEIR benchmark, ART obtains competitve results with BM25 showcasing its effectiveness on ad-hoc retrieval tasks. Please see Table 9 in the paper for a full discussion of results on the BEIR benchmark. 
+To reproduce ART's results in Table 9, please follow the following steps.
+
+##### Required Data and Checkpoints
+* We use the MS MARCO trained ART *checkpoint* to evaluate on the BEIR dataset [(checkpoint url)](https://www.dropbox.com/s/2huz1evykey5nno/msmarco-mss-base-init-bs512-topk4-epochs10.tar.gz).
+* Download the BEIR evaluation set [(url)](https://www.dropbox.com/s/rx2t8kbuk3zov8i/BEIR.tar.gz).
+* Download the BEIR evidence datasets [(url)](https://www.dropbox.com/s/ncsrjvn649yqwnr/evidence-beir.tar.gz).
+* Download the BERT tokenized evidence files [(url)](https://www.dropbox.com/s/roq4ayxllc5xc99/evidence-beir-mmap.tar.gz).
+
+##### Evaluation Scripts
+* Setup the evidence and dataset path(s) in `examples/beir/create_evidence_embeddings_and_evaluate_beir.sh`
+* Evaluate by providing the checkpoint path as argument to the `runner.sh` script as
+```bash
+bash examples/beir/runner_beir.sh CHECKPOINT_PATH/iter_0009500
+```
 
 
 # Helper Scripts
