@@ -102,7 +102,7 @@ OPTIONS=" \
     --max-training-rank ${WORLD_SIZE}"
 
 
-mkdir ${DATA_DIR}/retriever-topk-outputs
+mkdir "${DATA_DIR}/retriever-topk-outputs"
 
 if [ ${EVALUATE_RETRIEVER_RECALL} == "true" ];
 then
