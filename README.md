@@ -95,7 +95,7 @@ bash examples/indexer-scripts/create_evidence_embeddings_and_evaluate.sh mss-ret
 
 * To replicate the results on the Natural Questions-Open (NQ-Open) dataset, please run the script as
 ```bash
-bash examples/zero-shot-retriever-training/art-nq-T0-3B.sh
+bash examples/zero-shot-retriever-training/art-nq-T0-3B.sh 2>&1 | tee art-training-T0-3B-log.txt
 ```
 
 * This script uses (unsupervised) [masked salient spans (MSS)](https://arxiv.org/abs/2106.05346) pre-trained retriever to initialize the retriever weights, and [T0-3B pre-trained language model](https://arxiv.org/abs/2110.08207) weights for the cross-attention scorer.
@@ -118,7 +118,7 @@ However, when working with V100 GPUs, this argument should be removed as they do
 
 * When training with T5-lm-adapted-xxl PLM (11B), we use a batch size of 32 and retrieve top-16 passages at every step. We provide a separate script for this training
 ```bash
-bash examples/zero-shot-retriever-training/art-nq-t5-lm-adapted-11B.sh
+bash examples/zero-shot-retriever-training/art-nq-t5-lm-adapted-11B.sh 2>&1 | tee art-training-T5-lm-adapted-11B-log.txt
 ```
 
 * Once training is completed, the retriever checkpoint can be saved from the model checkpoint (in ${CHECKPOINT_PATH}) as
@@ -141,7 +141,7 @@ bash examples/indexer-scripts/create_evidence_embeddings_and_evaluate.sh RETRIEV
 Please ensure to change the data path in this script.
 
 
-#### Top-20 / top-100 accuracy when trained using questions from each dataset.
+### Top-20 / top-100 accuracy when trained using questions from each dataset.
 * "Multi" setting denotes that a single retriever model has been trained using the questions from all the datasets. 
 
 
@@ -153,7 +153,7 @@ ART       | T0 (3B)                     | 75.3 / 85.0 [(url)](https://www.dropbo
 ART-Multi [(url)](https://www.dropbox.com/s/b2sxvj9fcsevde3/multi-train-mss-base-init-T0-3B.tar.gz) | T0 (3B)           | 74.7 / 84.5 | 82.9 / 87.0 | 82.0 / 88.9 | 76.6 / 85.0 |  
 
 
-#### Top-20 / top-100 accuracy when trained using all the questions released in the Natural Questions dataset (NQ-Full) and / or MS MARCO.
+### Top-20 / top-100 accuracy when trained using all the questions released in the Natural Questions dataset (NQ-Full) and / or MS MARCO.
 
 Training Questions | Checkpoint | Cross-Attention PLM         |  SQuAD-Open | TriviaQA | NQ-Open | WebQ |
  ---------|:---:|:----------------------------|:-----------:|:-------:|:------:|:------:|
@@ -163,7 +163,7 @@ MS MARCO | [url](https://www.dropbox.com/s/2huz1evykey5nno/msmarco-mss-base-init
 MS MARCO + NQ-Full | [url](https://www.dropbox.com/s/wmoqcd4rwglyl96/msmarco-nq-all-mss-base-init-bs64-topk32.tar.gz) | T0 (3B) | 69.6 / 81.1 | 80.7 / 85.7 | 82.3 / 89.1 | 75.3 / 84.5 | 
 
 
-#### Scaling up ART training to large configuration of retriever
+### Scaling up ART training to large configuration of retriever
 * Please use the following checkpoints to reproduce results reported in Table 4 of the paper.
 
 Evaluation Split| Config |  Cross-Attention PLM         |  NQ-Open | TriviaQA |
@@ -177,7 +177,7 @@ Test | Base | T0 (3B) | 81.6 / 89.0 | 82.9 / 87.1 |
 Test | Large |T0 (3B) | 82.1 / 88.8 | 83.6 / 87.6 |
 
 
-#### BEIR Benchmark Experiments
+### BEIR Benchmark Experiments
 
 On the BEIR benchmark, ART obtains competitve results with BM25 showcasing its effectiveness on ad-hoc retrieval tasks. Please see Table 9 in the paper for a full discussion of results. 
 To reproduce ART's results in Table 9, please follow these steps.
@@ -187,24 +187,32 @@ To reproduce ART's results in Table 9, please follow these steps.
 </p>
 
 
-##### Download Required Data and MSMARCO Checkpoint
+#### Download Required Data and MSMARCO Checkpoint
+
+We have provided a script [`download_data_beir.sh`](./examples/beir/download_data_beir.sh) that will download all the required datasets and checkpoints. 
+Run this script by providing a directory path in the first argument.
+```bash
+bash examples/beir/download_data_beir.sh DIRNAME
+```
+These files can also be downloaded individually as:
+
 * We use MS MARCO questions to train ART and evaluate on the BEIR dataset [(checkpoint url)](https://www.dropbox.com/s/2huz1evykey5nno/msmarco-mss-base-init-bs512-topk4-epochs10.tar.gz).
 * Download the BEIR evaluation set [(url)](https://www.dropbox.com/s/rx2t8kbuk3zov8i/BEIR.tar.gz).
 * Download the BEIR evidence datasets [(url)](https://www.dropbox.com/s/ncsrjvn649yqwnr/evidence-beir.tar.gz).
 * Download the BERT tokenized evidence files [(url)](https://www.dropbox.com/s/roq4ayxllc5xc99/evidence-beir-mmap.tar.gz).
 
-##### Evaluation Scripts
+#### Evaluation Scripts
 * Install the library [pytrec_eval](https://github.com/cvangysel/pytrec_eval) (pip install pytrec_eval)
 * Setup the BASE_DIR, WORLD_SIZE, evidence and dataset path(s) in `examples/beir/embed_and_evaluate_beir.sh`
 * Evaluate by providing the checkpoint path as argument to the `runner_beir.sh` script as
 ```bash
-bash examples/beir/runner_beir.sh /mnt/disks/project/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10
+bash examples/beir/runner_beir.sh /mnt/disks/project/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10 2>&1 | tee beir-eval-using-msmarco-chkpt.txt
 ```
 * **CQADupStack**: As this dataset consists of multiple splits, we evaluate on it using separate scripts.
 * Setup the BASE_DIR, WORLD_SIZE, evidence and dataset path(s) in `examples/beir/embed_and_evaluate_cqadupstack.sh`.
 * Evaluate by providing the checkpoint path as argument to the `runner_cqadupstack.sh` script as
 ```bash
-bash examples/beir/runner_cqadupstack.sh /mnt/disks/project/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10
+bash examples/beir/runner_cqadupstack.sh /mnt/disks/project/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10 2>&1 | tee cqadupstack-eval-using-msmarco-chkpt.txt
 ```
 
 
