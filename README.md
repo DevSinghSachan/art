@@ -18,6 +18,8 @@
   <img src="images/art-model.png">
 </p>
 
+ART maximizes the retrieved passage likelihood computed from the dense retriever by considering the language model question reconstruction score conditioned on the passage as a *soft-label*.
+Colored blocks indicate trainable parameters. Red arrows show gradient flow during backpropagation.
 
 <a id="setup"></a>
 # Setup
@@ -54,12 +56,25 @@ These files can also be downloaded separately by using the `wget` command-line u
 - [Wikipedia evidence passages](https://www.dropbox.com/s/bezryc9win2bha1/psgs_w100.tar.gz)
 - [BERT pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/yxsne7qzz848pk4/indexed-evidence-bert-tokenized.tar.gz)
 - [T0 pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/4tvvll8qeso7fal/indexed-evidence-t0-tokenized.tar.gz): This will work for both T0 and T5 models.
-- [Training and evaluation datasets](https://www.dropbox.com/s/jufz5g88w5v07qc/qas.tar.gz): NQ-Open, Nq-full, TriviaQA, SQuAD1, WebQ, EntityQuestions, MS MARCO.
+- [Training and evaluation datasets](https://www.dropbox.com/s/jufz5g88w5v07qc/qas.tar.gz): NQ-Open, Nq-Full, TriviaQA, SQuAD1, WebQ, EntityQuestions, MS MARCO.
 - [BERT-large vocabulary file](https://www.dropbox.com/s/ttblv1uggd4cijt/bert-large-uncased-vocab.txt)
+
+The BERT pre-tokenized evidence file(s) can also be obtained by the command:
+```bash
+python tools/create_evidence_indexed_dataset.py --input /mnt/disks/project/data/wikipedia-split/psgs_w100.tsv --tsv-keys text title --tokenizer-type BertWordPieceLowerCase --vocab-file /mnt/disks/project/bert-vocab/bert-large-uncased-vocab.txt --output-prefix wikipedia-evidence-bert --workers 25 
+```
+
+The T0/T5 pre-tokenized evidence file(s) can also be obtained by the command:
+```bash
+python tools/create_evidence_indexed_dataset_t0.py --input /mnt/disks/project/data/wikipedia-split/psgs_w100.tsv --tsv-keys text title  --output-prefix wikipedia-evidence-t0 --workers 25
+```
+
 
 ##### Required checkpoints and pre-computed evidence embeddings
 - [Masked Salient Span (MSS) pre-trained retriever](https://www.dropbox.com/s/069xj395ftxv4hz/mss-emdr2-retriever-base-steps82k.tar.gz)
 - [Precomputed evidence embedding using MSS retriever](https://www.dropbox.com/s/y7rg8u41yavje0y/psgs_w100_emdr2-retriever-base-steps82k_full-wikipedia_base.pkl): This is a big file with 32 GB size.
+
+
 
 
 <a id="training"></a>
@@ -95,6 +110,8 @@ However, when working with V100 GPUs, this argument should be removed as they do
 ```bash
 bash examples/zero-shot-retriever-training/art-nq-t5-lm-adapted-11B.sh
 ```
+
+* The details for training on MS MARCO dataset are included in the branch `msmarco`. The code is not very clean but the default scripts should work fine.
 
 <a id="pre-trained-checkpoints"></a>
 # Pre-trained Checkpoints
