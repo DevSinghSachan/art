@@ -1,4 +1,3 @@
-
 """Index evidence dataset for use in QA tasks.
    This file is similar to the tools/preprocess_data.py script in the backbones
 """
@@ -11,11 +10,20 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              os.path.pardir)))
 import time
-
 import torch
-
 from megatron.tokenizer import build_tokenizer
 from megatron.data import indexed_dataset
+
+# https://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
+maxInt = sys.maxsize
+while True:
+    # decrease the maxInt value by factor 10
+    # as long as the OverflowError occurs.
+    try:
+        csv.field_size_limit(maxInt)
+        break
+    except OverflowError:
+        maxInt = int(maxInt/10)
 
 
 class IdentitySplitter(object):
@@ -46,6 +54,8 @@ class Encoder(object):
                 sentence_ids = Encoder.tokenizer.tokenize(sentence)
                 if len(sentence_ids) > 0:
                     doc_ids.append(sentence_ids)
+                else:
+                    doc_ids.append([Encoder.tokenizer.cls, Encoder.tokenizer.sep])
             ids[key] = doc_ids
         return ids, len(csv_line)
 

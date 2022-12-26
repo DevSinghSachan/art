@@ -192,7 +192,6 @@ def _add_network_size_args(parser):
                        'reasons.')
     group.add_argument('--onnx-safe', type=bool, required=False,
                        help='Use workarounds for known problems with Torch ONNX exporter')
-
     return parser
 
 
@@ -546,7 +545,7 @@ def _add_art_args(parser):
     group.add_argument('--verbalizer-head', type=str, default="Passage: ",
                        help='The string token used to represent encoder input')
 
-    group.add_argument('--shard-size', type=int, default=20,
+    group.add_argument('--shard-size', type=int, default=16,
                        help='Shard size of top-K passages to get T0 logits')
 
     group.add_argument('--initialize-t0-model-tokenizer-evidence', action='store_true',
@@ -583,4 +582,9 @@ def _add_art_args(parser):
                        help='allow retriever to fetch the document from which a query came')
     group.add_argument('--run-indexer', action='store_true',
                        help='Whether to run the indexer job or not')
+
+    # Trec Eval
+    group.add_argument('--trec-eval', action='store_true',
+                       help='Whether to use trec evaluation tools')
+
     return parser

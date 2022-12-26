@@ -40,7 +40,7 @@ tar -xvzf indexed-evidence-t0-tokenized.tar.gz --directory "${BASE_DIR}/data/evi
 rm indexed-evidence-t0-tokenized.tar.gz
 
 echo "[Step 6/6] Download question-answer training and evaluation datasets"
-wget https://www.dropbox.com/s/yj7hukwyl04hvs3/qas.tar.gz
+wget https://www.dropbox.com/s/jufz5g88w5v07qc/qas.tar.gz
 tar -xvzf qas.tar.gz --directory "${BASE_DIR}/data"
 rm qas.tar.gz
 
