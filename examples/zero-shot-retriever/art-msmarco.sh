@@ -1,6 +1,7 @@
 pip install transformers jsonlines sentencepiece spacy
 export TRANSFORMERS_CACHE="${HOME}/transformers-cache"
 
+WORLD_SIZE=8
 CONFIG="base"
 BASE_DIR="/home/sachande"
 DATA_DIR="${BASE_DIR}/data/qas"
@@ -13,17 +14,17 @@ QA_FILE_DEV="${BASE_DIR}/pyserini/collections/msmarco-passage/queries.dev.small.
 MSMARCO_DEV_REFERENCE_PATH="${BASE_DIR}/pyserini/collections/msmarco-passage/qrels.dev.small.tsv"
 
 EVIDENCE_DATA_PATH="${BASE_DIR}/data/msmarco-collection/msmarco-collection.tsv"
-TOPK=32
+TOPK=4
 
 RETRIEVER_CHKPT_PATH="${BASE_DIR}/checkpoints/mss-emdr2-retriever-base-steps82k"
 VOCAB_FILE="${BASE_DIR}/bert-vocab/bert-large-uncased-vocab.txt"
 
-CHECKPOINT_PATH="${BASE_DIR}/checkpoints/msmarco-mss-base-init-bs64-topk32-epochs10"
+CHECKPOINT_PATH="${BASE_DIR}/checkpoints/msmarco-mss-base-init-bs256-topk${TOPK}-epochs10"
 #rm -rf ${CHECKPOINT_PATH}
 
-mkdir -p ${BASE_DIR}"/embedding-path/upr-finetuning-embedding"
+mkdir -p ${BASE_DIR}"/embedding-path/art-finetuning-embedding"
 
-EMBEDDING_PATH="${BASE_DIR}/embedding-path/upr-finetuning-embedding/msmarco-${CONFIG}-topk${TOPK}-epochs10-bsize64-indexer-upr-distill.pkl"
+EMBEDDING_PATH="${BASE_DIR}/embedding-path/art-finetuning-embedding/msmarco-${CONFIG}-topk${TOPK}-epochs10-bsize64-indexer.pkl"
 #rm ${EMBEDDING_PATH}
 
 ORIGINAL_EMBEDDING_PATH="${BASE_DIR}/embedding-path/msmarco-mss-base-emdr2-steps82k.pkl"
@@ -36,9 +37,7 @@ else
     cp ${ORIGINAL_EMBEDDING_PATH} ${EMBEDDING_PATH}
 fi
 
-DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node 8 --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
-#DISTRIBUTED_ARGS="-m pdb"
-WORLD_SIZE=8
+DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${WORLD_SIZE} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
 
 
 function config_base() {
@@ -65,7 +64,7 @@ OPTIONS=" \
           --evidence-data-path ${EVIDENCE_DATA_PATH} \
           --indexed-evidence-bert-tokenized-data-path ${BASE_DIR}/data/evidence-msmarco-indexed-mmap/msmarco-evidence_text_document \
           --indexed-evidence-t0-tokenized-data-path ${BASE_DIR}/data/evidence-msmarco-indexed-mmap/t0/msmarco-evidence-t0_text_document \
-          --save-interval 1000 \
+          --save-interval 500 \
           --save ${CHECKPOINT_PATH} \
           --load ${CHECKPOINT_PATH} \
           --pretrained-dualencoder-load ${RETRIEVER_CHKPT_PATH} \
@@ -88,7 +87,7 @@ OPTIONS=" \
           --tokenizer-type BertWordPieceLowerCase \
           --epochs 10 \
           --sample-rate 1.0 \
-          --batch-size 8 \
+          --batch-size 64 \
           --eval-batch-size 8 \
           --lr 2e-5 \
           --warmup 0.01 \
@@ -98,13 +97,13 @@ OPTIONS=" \
           --faiss-use-gpu \
           --topk-retrievals ${TOPK} \
           --report-topk-accuracies 1 5 20 50 100 \
-          --upr-distillation-training \
+          --art-training \
           --retriever-score-scaling \
           --update-retriever \
-          --shard-size 4 \
+          --shard-size 8 \
           --initialize-t0-model-tokenizer-evidence \
           --t0-model-in-bf16 \
-          --index-reload-interval 1000 \
+          --index-reload-interval 500 \
           --path-to-msmarco-dev-reference ${MSMARCO_DEV_REFERENCE_PATH} \
           --compute-fresh-evidence-embeddings "
 

@@ -93,7 +93,7 @@ def parse_args(extra_args_provider=None, defaults={},
         _check_arg_is_not_none(args, req_arg)
 
     # UPR Distillation-specific arguments
-    if args.upr_distillation_training:
+    if args.art_training:
         if args.bert_load is not None:
             assert args.pretrained_dualencoder_load is None
         else:
@@ -549,7 +549,7 @@ def _add_upr_args(parser):
     group.add_argument('--inverse-temperature-multiplier', type=float, default=1.0,
                        help="Inverse temperature multiplier for retriever score scaling")
 
-    group.add_argument('--upr-distillation-training', action='store_true',
+    group.add_argument('--art-training', action='store_true',
                        help="Whether performing UPR distillation")
 
     group.add_argument('--no-context-embedder-training', action='store_true',

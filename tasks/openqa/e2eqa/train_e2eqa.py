@@ -377,7 +377,7 @@ def train(train_valid_datasets_provider, model_provider,
     print_rank_0('training ...')
 
     # Finetune the model.
-    if args.epochs > 0 and args.upr_distillation_training:
+    if args.epochs > 0 and args.art_training:
         _train(model,
                optimizer,
                lr_scheduler,

@@ -1,20 +1,23 @@
 #!/bin/bash
 
-NPROC=8
 BASE_DIR="/home/sachande"
 DATA_DIR="${BASE_DIR}/data/msmarco-collection/msmarco-collection.tsv"
 VOCAB_FILE="${BASE_DIR}/bert-vocab/bert-large-uncased-vocab.txt"
 
-EMBEDDING_PATH="$BASE_DIR/embedding-path/msmarco-mss-base-emdr2-steps82k.pkl"
+EMBEDDING_PATH="$BASE_DIR/embedding-path/upr-finetuning-embedding/msmarco-base-topk4-epochs10-bsize512-indexer-upr-distill-step5500.pkl"
 
-CHECKPOINT_PATH="$BASE_DIR/checkpoints/mss-emdr2-retriever-base-steps82k"
 
-DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node ${NPROC} --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
+CHECKPOINT_PATH="$BASE_DIR/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10-retriever"
+
+
+DISTRIBUTED_ARGS="-m torch.distributed.launch --nproc_per_node 8 --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6000"
+NPROC=8
+#DISTRIBUTED_ARGS="-m pdb"
 
 QA_FILE_DEV="${BASE_DIR}/pyserini/collections/msmarco-passage/queries.dev.small.tsv"
 MSMARCO_DEV_REFERENCE_PATH="${BASE_DIR}/pyserini/collections/msmarco-passage/qrels.dev.small.tsv"
 
-CREATE_EVIDENCE_INDEXES="false"
+CREATE_EVIDENCE_INDEXES="true"
 EVALUATE_RETRIEVER_RECALL="true"
 
 OPTIONS="--num-layers 12 \
@@ -39,7 +42,7 @@ OPTIONS="--num-layers 12 \
 
 if [ ${CREATE_EVIDENCE_INDEXES} == "true" ];
 then
-    COMMAND="WORLD_SIZE=16 python ${DISTRIBUTED_ARGS} create_doc_index.py ${OPTIONS}"
+    COMMAND="WORLD_SIZE=8 python ${DISTRIBUTED_ARGS} create_doc_index.py ${OPTIONS}"
     eval "${COMMAND}"
 fi
 set +x
@@ -60,10 +63,11 @@ OPTIONS="--num-layers 12 \
     --qa-file-dev ${QA_FILE_DEV} \
     --num-workers 2 \
     --faiss-use-gpu \
-    --report-topk-accuracies 1 5 10 20 50 100 \
+    --report-topk-accuracies 1 5 10 20 50 100 1000 \
     --fp16 \
-    --topk-retrievals 100 \
+    --topk-retrievals 1000 \
     --path-to-msmarco-dev-reference ${MSMARCO_DEV_REFERENCE_PATH} \
+    --save-topk-outputs-path temp-topk-outputs-path \
     --max-training-rank ${NPROC}"
 
 
