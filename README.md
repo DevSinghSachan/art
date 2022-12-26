@@ -179,20 +179,32 @@ Test | Large |T0 (3B) | 82.1 / 88.8 | 83.6 / 87.6 |
 
 #### BEIR Benchmark Experiments
 
-On the BEIR benchmark, ART obtains competitve results with BM25 showcasing its effectiveness on ad-hoc retrieval tasks. Please see Table 9 in the paper for a full discussion of results on the BEIR benchmark. 
-To reproduce ART's results in Table 9, please follow the following steps.
+On the BEIR benchmark, ART obtains competitve results with BM25 showcasing its effectiveness on ad-hoc retrieval tasks. Please see Table 9 in the paper for a full discussion of results. 
+To reproduce ART's results in Table 9, please follow these steps.
 
-##### Required Data and Checkpoints
-* We use the MS MARCO trained ART *checkpoint* to evaluate on the BEIR dataset [(checkpoint url)](https://www.dropbox.com/s/2huz1evykey5nno/msmarco-mss-base-init-bs512-topk4-epochs10.tar.gz).
+<p align="center">
+  <img src="images/beir-benchmark-results.png">
+</p>
+
+
+##### Download Required Data and MSMARCO Checkpoint
+* We use MS MARCO questions to train ART and evaluate on the BEIR dataset [(checkpoint url)](https://www.dropbox.com/s/2huz1evykey5nno/msmarco-mss-base-init-bs512-topk4-epochs10.tar.gz).
 * Download the BEIR evaluation set [(url)](https://www.dropbox.com/s/rx2t8kbuk3zov8i/BEIR.tar.gz).
 * Download the BEIR evidence datasets [(url)](https://www.dropbox.com/s/ncsrjvn649yqwnr/evidence-beir.tar.gz).
 * Download the BERT tokenized evidence files [(url)](https://www.dropbox.com/s/roq4ayxllc5xc99/evidence-beir-mmap.tar.gz).
 
 ##### Evaluation Scripts
-* Setup the evidence and dataset path(s) in `examples/beir/create_evidence_embeddings_and_evaluate_beir.sh`
-* Evaluate by providing the checkpoint path as argument to the `runner.sh` script as
+* Install the library [pytrec_eval](https://github.com/cvangysel/pytrec_eval) (pip install pytrec_eval)
+* Setup the BASE_DIR, WORLD_SIZE, evidence and dataset path(s) in `examples/beir/embed_and_evaluate_beir.sh`
+* Evaluate by providing the checkpoint path as argument to the `runner_beir.sh` script as
 ```bash
-bash examples/beir/runner_beir.sh CHECKPOINT_PATH/iter_0009500
+bash examples/beir/runner_beir.sh /mnt/disks/project/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10
+```
+* **CQADupStack**: As this dataset consists of multiple splits, we evaluate on it using separate scripts.
+* Setup the BASE_DIR, WORLD_SIZE, evidence and dataset path(s) in `examples/beir/embed_and_evaluate_cqadupstack.sh`.
+* Evaluate by providing the checkpoint path as argument to the `runner_cqadupstack.sh` script as
+```bash
+bash examples/beir/runner_cqadupstack.sh /mnt/disks/project/checkpoints/msmarco-mss-base-init-bs512-topk4-epochs10
 ```
 
 
@@ -202,8 +214,6 @@ bash examples/beir/runner_beir.sh CHECKPOINT_PATH/iter_0009500
 ```python
 python tools/create_evidence_indexed_dataset.py --input /mnt/disks/project/data/dpr/wikipedia_split/psgs_w100.tsv --tsv-keys text title --tokenizer-type BertWordPieceLowerCase --vocab-file /mnt/disks/project/bert-vocab/bert-large-uncased-vocab.txt --output-prefix wikipedia-evidence --workers 25
 ```
-
-
 
 
 <a id="issues"></a>
