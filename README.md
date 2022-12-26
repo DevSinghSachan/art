@@ -52,7 +52,7 @@ bash examples/helper-scripts/download_data.sh DIRNAME
 
 These files can also be downloaded separately by using the `wget` command-line utility and the links provided below.
 
-##### Required data files for training
+#### Required data files for training
 - [Wikipedia evidence passages](https://www.dropbox.com/s/bezryc9win2bha1/psgs_w100.tar.gz)
 - [BERT pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/yxsne7qzz848pk4/indexed-evidence-bert-tokenized.tar.gz)
 - [T0 pre-tokenized evidence passages and their titles](https://www.dropbox.com/s/4tvvll8qeso7fal/indexed-evidence-t0-tokenized.tar.gz): This will work for both T0 and T5 models.
@@ -70,10 +70,20 @@ python tools/create_evidence_indexed_dataset_t0.py --input /mnt/disks/project/da
 ```
 
 
-##### Required checkpoints and pre-computed evidence embeddings
+#### Required checkpoints and pre-computed evidence embeddings
 - [Masked Salient Span (MSS) pre-trained retriever](https://www.dropbox.com/s/069xj395ftxv4hz/mss-emdr2-retriever-base-steps82k.tar.gz)
 - [Precomputed evidence embedding using MSS retriever](https://www.dropbox.com/s/y7rg8u41yavje0y/psgs_w100_emdr2-retriever-base-steps82k_full-wikipedia_base.pkl): This is a big file with 32 GB size.
 
+The evidence embeddings for a retriever checkpoint can be computed and evaluated with the command
+```bash
+bash examples/indexer-scripts/create_evidence_embeddings_and_evaluate.sh RETRIEVER_CHECKPOINT_PATH
+```
+Please ensure to change the data path in this script. 
+
+For example, to compute the Wikipedia evidence embeddings corresponding to the above MSS retreiver checkpoint and evaluate it on NQ-Open dev and test sets, it can be done with
+```bash
+bash examples/indexer-scripts/create_evidence_embeddings_and_evaluate.sh mss-retriever-base/iter_0082000
+```
 
 
 
@@ -113,13 +123,26 @@ bash examples/zero-shot-retriever-training/art-nq-t5-lm-adapted-11B.sh
 
 * The details for training on MS MARCO dataset are included in the branch `msmarco`. The code is not very clean but the default scripts should work fine.
 
+* Once training is completed, the retriever checkpoint can be saved from the model checkpoint (in ${CHECKPOINT_PATH}) as
+```bash
+RETRIEVER_CHECKPOINT_PATH=${CHECKPOINT_PATH}"-tmp"
+python tools/save_art_retriever.py --load ${CHECKPOINT_PATH} --save ${RETRIEVER_CHECKPOINT_PATH} --submodel-name "retriever"
+```
+
 <a id="pre-trained-checkpoints"></a>
 # Pre-trained Checkpoints
 
+* We have provided pre-trained retriever checkpoints whose URL is indicated in the (url) tag.
+The evidence embeddings for a retriever checkpoint can be computed and evaluated with the command
+```bash
+bash examples/indexer-scripts/create_evidence_embeddings_and_evaluate.sh RETRIEVER_CHECKPOINT_PATH/iter_000xxyy
+```
+Please ensure to change the data path in this script.
 
-##### Top-20 / top-100 accuracy when trained using questions from each dataset.
+
+#### Top-20 / top-100 accuracy when trained using questions from each dataset.
 * "Multi" setting denotes that a single retriever model has been trained using the questions from all the datasets. 
-* We provide pre-trained retriever checkpoints whose URL is indicated in the (url) tag.
+
 
 Retriever | Cross-Attention PLM         |  SQuAD-Open | TriviaQA | NQ-Open | WebQ |
  ---------|:----------------------------|:-----------:|:-------:|:------:|:------:|
@@ -129,8 +152,7 @@ ART       | T0 (3B)                     | 75.3 / 85.0 [(url)](https://www.dropbo
 ART-Multi [(url)](https://www.dropbox.com/s/b2sxvj9fcsevde3/multi-train-mss-base-init-T0-3B.tar.gz) | T0 (3B)           | 74.7 / 84.5 | 82.9 / 87.0 | 82.0 / 88.9 | 76.6 / 85.0 |  
 
 
-##### Top-20 / top-100 accuracy when trained using all the questions released in the Natural Questions dataset (NQ-Full) and / or MS MARCO.
-* We provide pre-trained retriever checkpoints whose URL is indicated in the (url) tag.
+#### Top-20 / top-100 accuracy when trained using all the questions released in the Natural Questions dataset (NQ-Full) and / or MS MARCO.
 
 Training Questions | Checkpoint | Cross-Attention PLM         |  SQuAD-Open | TriviaQA | NQ-Open | WebQ |
  ---------|:---:|:----------------------------|:-----------:|:-------:|:------:|:------:|
@@ -140,7 +162,7 @@ MS MARCO | [url](https://www.dropbox.com/s/2huz1evykey5nno/msmarco-mss-base-init
 MS MARCO + NQ-Full | [url](https://www.dropbox.com/s/wmoqcd4rwglyl96/msmarco-nq-all-mss-base-init-bs64-topk32.tar.gz) | T0 (3B) | 69.6 / 81.1 | 80.7 / 85.7 | 82.3 / 89.1 | 75.3 / 84.5 | 
 
 
-##### Scaling up ART training to large configuration of retriever
+#### Scaling up ART training to large configuration of retriever
 * Please use the following checkpoints to reproduce results reported in Table 4 of the paper.
 
 Evaluation Split| Config |  Cross-Attention PLM         |  NQ-Open | TriviaQA |
