@@ -28,7 +28,7 @@ echo "[Step 4/6] Download evidence embedding pre-computed from the MSS pre-train
 wget https://www.dropbox.com/s/y7rg8u41yavje0y/psgs_w100_emdr2-retriever-base-steps82k_full-wikipedia_base.pkl
 mv psgs_w100_emdr2-retriever-base-steps82k_full-wikipedia_base.pkl "${BASE_DIR}/embedding-path/psgs_w100-mss-retriever-full-wikipedia-base.pkl"
 
-echo "[Step 5/6] Download pre-tokenized Wikipedia passage embeddings for BERT and T0 tokenizations"
+echo "[Step 5/6] Download pre-tokenized Wikipedia passages (and their titles) for BERT and T0 tokenizations"
 mkdir "${BASE_DIR}/data/evidence-wikipedia-indexed-mmap"
 
 wget https://www.dropbox.com/s/yxsne7qzz848pk4/indexed-evidence-bert-tokenized.tar.gz
